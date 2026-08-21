@@ -73,7 +73,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Next.js Content Progress and Question runtime smoke test
+      - name: Next.js Content Progress Question and Wrong Answer runtime smoke test
         shell: bash
         run: |
           npm run start > /tmp/gcls-next.log 2>&1 &
@@ -105,6 +105,7 @@ jobs:
             echo 'Correct answer leaked in initial question HTML.' >&2
             exit 1
           fi
+          curl -fsS http://127.0.0.1:3000/wrong-answers | grep 'GH-900 오답 재학습 Queue'
           curl -fsS http://127.0.0.1:3000/login | grep '학습자 계정'
           curl -fsS http://127.0.0.1:3000/progress | grep '내 학습 진행률'
           curl -fsS http://127.0.0.1:3000/api/ai/health
@@ -243,6 +244,124 @@ jobs:
           ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
           test -n "$ACCESS2"
           ISOLATED=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/question_attempts?select=id&user_id=eq.$USER1" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
+
+      - name: P5 Wrong Answer Retry Queue and RLS smoke test
+        shell: bash
+        run: |
+          npm run start > /tmp/gcls-p5.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/wrong-answers >/dev/null && break
+            sleep 1
+          done
+
+          EMAIL1="p5-ci-$(date +%s)-1@example.com"
+          EMAIL2="p5-ci-$(date +%s)-2@example.com"
+          PASSWORD='P5-test-123!'
+
+          SIGNUP1=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\"}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1"
+          test -n "$USER1"
+
+          FIRST_STATUS=$(curl -sS -o /tmp/p5-first.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"selectedAnswer":"A"}')
+          cat /tmp/p5-first.json
+          if [ "$FIRST_STATUS" != '200' ]; then
+            cat /tmp/gcls-p5.log
+            exit 1
+          fi
+          grep '"isCorrect":false' /tmp/p5-first.json
+          grep '"priority":"MEDIUM"' /tmp/p5-first.json
+          grep '"status":"OPEN"' /tmp/p5-first.json
+          grep '"retryStage":"DAY_1"' /tmp/p5-first.json
+          WRONG_ID=$(node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/p5-first.json","utf8"));process.stdout.write(x.wrongAnswer?.id||"")')
+          test -n "$WRONG_ID"
+
+          QUEUE=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/wrong_answer_items?select=id,question_id,priority,status,retry_stage,wrong_count&question_id=eq.Q001" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$QUEUE" | grep '"question_id":"Q001"'
+          echo "$QUEUE" | grep '"retry_stage":"DAY_1"'
+
+          CLASSIFY_STATUS=$(curl -sS -o /tmp/p5-classify.json -w '%{http_code}' "http://127.0.0.1:3000/api/wrong-answers/$WRONG_ID/classify" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"errorCode":"COMPARE","reflection":"fetch와 pull의 차이를 혼동했다."}')
+          cat /tmp/p5-classify.json
+          test "$CLASSIFY_STATUS" = '200'
+          grep '"errorCode":"COMPARE"' /tmp/p5-classify.json
+          grep '"priority":"MEDIUM"' /tmp/p5-classify.json
+
+          DAY1_STATUS=$(curl -sS -o /tmp/p5-day1.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"selectedAnswer\":\"B\",\"mode\":\"retry\",\"wrongAnswerId\":\"$WRONG_ID\"}")
+          cat /tmp/p5-day1.json
+          test "$DAY1_STATUS" = '200'
+          grep '"isCorrect":true' /tmp/p5-day1.json
+          grep '"status":"OPEN"' /tmp/p5-day1.json
+          grep '"retryStage":"DAY_7"' /tmp/p5-day1.json
+
+          DAY7_STATUS=$(curl -sS -o /tmp/p5-day7.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"selectedAnswer\":\"B\",\"mode\":\"retry\",\"wrongAnswerId\":\"$WRONG_ID\"}")
+          cat /tmp/p5-day7.json
+          test "$DAY7_STATUS" = '200'
+          grep '"status":"CLOSED"' /tmp/p5-day7.json
+          grep '"retryStage":"CLOSED"' /tmp/p5-day7.json
+
+          SECOND_STATUS=$(curl -sS -o /tmp/p5-second.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q002/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"selectedAnswer":"B"}')
+          test "$SECOND_STATUS" = '200'
+          WRONG_ID2=$(node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/p5-second.json","utf8"));process.stdout.write(x.wrongAnswer?.id||"")')
+          test -n "$WRONG_ID2"
+
+          FAIL_RETRY_STATUS=$(curl -sS -o /tmp/p5-fail-retry.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q002/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"selectedAnswer\":\"B\",\"mode\":\"retry\",\"wrongAnswerId\":\"$WRONG_ID2\"}")
+          cat /tmp/p5-fail-retry.json
+          test "$FAIL_RETRY_STATUS" = '200'
+          grep '"isCorrect":false' /tmp/p5-fail-retry.json
+          grep '"priority":"HIGH"' /tmp/p5-fail-retry.json
+          grep '"retryStage":"DAY_1"' /tmp/p5-fail-retry.json
+          grep '"wrongCount":2' /tmp/p5-fail-retry.json
+
+          RETRIES=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/wrong_answer_retries?select=retry_stage,is_correct&wrong_answer_id=eq.$WRONG_ID" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$RETRIES" | grep '"retry_stage":"DAY_1"'
+          echo "$RETRIES" | grep '"retry_stage":"DAY_7"'
+
+          DIRECT_STATUS=$(curl -sS -o /tmp/p5-direct.json -w '%{http_code}' \
+            -X POST "$P3_SUPABASE_URL/rest/v1/wrong_answer_items" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"set_slug\":\"010-basics\",\"question_id\":\"Q999\",\"last_selected_answer\":\"A\",\"correct_answer\":\"B\"}")
+          test "$DIRECT_STATUS" -ge 400
+
+          SIGNUP2=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          test -n "$ACCESS2"
+          ISOLATED=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/wrong_answer_items?select=id&id=eq.$WRONG_ID" \
             -H "apikey: $P3_ANON_KEY" \
             -H "Authorization: Bearer $ACCESS2")
           test "$ISOLATED" = '[]'
