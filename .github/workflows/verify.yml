@@ -48,8 +48,7 @@ jobs:
       - name: Start Supabase and apply migrations
         shell: bash
         run: |
-          # GitHub hosted runners may already use PostgreSQL's default-adjacent ports.
-          # Keep repository defaults for local developers and isolate CI only.
+          # Keep repository defaults for local developers and isolate CI-only ports.
           sed -i 's/port = 54321/port = 55321/' supabase/config.toml
           sed -i 's/port = 54322/port = 55322/' supabase/config.toml
           sed -i 's/shadow_port = 54320/shadow_port = 55320/' supabase/config.toml
@@ -58,14 +57,15 @@ jobs:
           npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
           npx --yes supabase@2.115.0 db reset
           npx --yes supabase@2.115.0 status -o env > /tmp/supabase.env
-          cat /tmp/supabase.env
           set -a
           source /tmp/supabase.env
           set +a
           test -n "$ANON_KEY"
           test -n "$SERVICE_ROLE_KEY"
+          test -n "$SECRET_KEY"
           echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:55321" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=$SECRET_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           echo "P3_SUPABASE_URL=http://127.0.0.1:55321" >> "$GITHUB_ENV"
           echo "P3_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
@@ -199,17 +199,26 @@ jobs:
           test -n "$ACCESS1"
           test -n "$USER1"
 
-          CORRECT=$(curl -fsS http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
+          CORRECT_STATUS=$(curl -sS -o /tmp/p4-correct.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
             -H "Authorization: Bearer $ACCESS1" \
             -H 'content-type: application/json' \
             -d '{"selectedAnswer":"B"}')
+          cat /tmp/p4-correct.json
+          if [ "$CORRECT_STATUS" != '200' ]; then
+            cat /tmp/gcls-p4.log
+            exit 1
+          fi
+          CORRECT=$(cat /tmp/p4-correct.json)
           echo "$CORRECT" | grep '"isCorrect":true'
           echo "$CORRECT" | grep '"correctAnswer":"B"'
 
-          INCORRECT=$(curl -fsS http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q002/submit \
+          INCORRECT_STATUS=$(curl -sS -o /tmp/p4-incorrect.json -w '%{http_code}' http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q002/submit \
             -H "Authorization: Bearer $ACCESS1" \
             -H 'content-type: application/json' \
             -d '{"selectedAnswer":"B"}')
+          cat /tmp/p4-incorrect.json
+          test "$INCORRECT_STATUS" = '200'
+          INCORRECT=$(cat /tmp/p4-incorrect.json)
           echo "$INCORRECT" | grep '"isCorrect":false'
           echo "$INCORRECT" | grep '"correctAnswer":"A"'
 
