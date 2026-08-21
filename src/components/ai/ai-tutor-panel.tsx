@@ -10,7 +10,7 @@ const stages: Array<{ stage: TutorStage; label: string; description: string }> =
   { stage: "HINT", label: "1. Hint", description: "정답을 말하지 않는 핵심 단서" },
   { stage: "CONCEPT", label: "2. Concept", description: "필수 개념과 유사 개념 비교" },
   { stage: "SIMILAR_EXAMPLE", label: "3. Similar Example", description: "다른 상황으로 한 번 더 이해" },
-  { stage: "EXPLANATION", label: "5. Explanation", description: "제출 후 정답·오답 이유 해설" },
+  { stage: "EXPLANATION", label: "5. Explanation", description: "실제 제출 이력이 있을 때 정답·오답 이유 해설" },
 ];
 
 export function AITutorPanel({
@@ -60,18 +60,22 @@ export function AITutorPanel({
         <div><p className="eyebrow">P7 · AI Tutor</p><strong>Hint → Concept → Similar Example → Retry → Explanation</strong></div>
         <span className="badge">AI ≠ 채점기</span>
       </div>
-      <p className="aiTutorNote">Hint~Similar Example에서는 정답을 숨깁니다. Explanation은 이 문항을 한 번 제출한 뒤에만 열립니다.</p>
+      <p className="aiTutorNote">Hint~Similar Example에서는 선택지와 정답을 AI에 제공하지 않습니다. Explanation은 DB의 실제 제출 이력을 서버가 확인한 뒤에만 열립니다.</p>
       <div className="aiTutorActions">
-        {stages.map((item) => {
-          const disabled = busy !== null || (item.stage === "EXPLANATION" && !attempted);
-          return (
-            <button className="buttonSecondary" type="button" disabled={disabled} onClick={() => requestTutor(item.stage)} key={item.stage} title={item.description}>
-              {busy === item.stage ? "생성 중…" : item.label}
-            </button>
-          );
-        })}
+        {stages.map((item) => (
+          <button
+            className="buttonSecondary"
+            type="button"
+            disabled={busy !== null}
+            onClick={() => requestTutor(item.stage)}
+            key={item.stage}
+            title={item.stage === "EXPLANATION" && !attempted ? "현재 또는 이전 세션의 실제 제출 기록이 필요합니다." : item.description}
+          >
+            {busy === item.stage ? "생성 중…" : item.label}
+          </button>
+        ))}
       </div>
-      {!attempted ? <p className="aiTutorNote"><strong>4. Retry:</strong> 위 도움을 참고해 선택지를 고르고 기존 정답 제출 버튼으로 다시 풀어보세요.</p> : null}
+      {!attempted ? <p className="aiTutorNote"><strong>4. Retry:</strong> 위 도움을 참고해 선택지를 고르고 기존 정답 제출 버튼으로 다시 풀어보세요. 이전 제출 이력이 있다면 Explanation은 서버 확인 후 바로 열립니다.</p> : null}
       {message ? <p className="statusMessage">{message}</p> : null}
       {result ? (
         <div className="aiTutorResponse">
