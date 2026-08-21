@@ -18,6 +18,8 @@
 14. [P6 검증](./140-p6-verification.md)
 15. [P7 AI Gateway / Tutor](./150-p7-ai-gateway-tutor.md)
 16. [P7 검증](./160-p7-verification.md)
+17. [P8 RAG Grounding](./170-p8-rag-grounding.md)
+18. [P8 검증](./180-p8-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -39,3 +41,5 @@
 | 140 | P6 Verification | PASS |
 | 150 | P7 AI Gateway / Tutor | COMPLETE |
 | 160 | P7 Verification | PASS |
+| 170 | P8 RAG Grounding | COMPLETE |
+| 180 | P8 Verification | PASS |

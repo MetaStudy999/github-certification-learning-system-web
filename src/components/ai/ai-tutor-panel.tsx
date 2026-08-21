@@ -13,6 +13,10 @@ const stages: Array<{ stage: TutorStage; label: string; description: string }> =
   { stage: "EXPLANATION", label: "5. Explanation", description: "실제 제출 이력이 있을 때 정답·오답 이유 해설" },
 ];
 
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
 export function AITutorPanel({
   accessToken,
   courseSlug,
@@ -57,10 +61,10 @@ export function AITutorPanel({
   return (
     <div className="aiTutorPanel">
       <div className="aiTutorHeader">
-        <div><p className="eyebrow">P7 · AI Tutor</p><strong>Hint → Concept → Similar Example → Retry → Explanation</strong></div>
+        <div><p className="eyebrow">P8 · RAG-grounded AI Tutor</p><strong>Hint → Concept → Similar Example → Retry → Explanation</strong></div>
         <span className="badge">AI ≠ 채점기</span>
       </div>
-      <p className="aiTutorNote">Hint~Similar Example에서는 선택지와 정답을 AI에 제공하지 않습니다. Explanation은 DB의 실제 제출 이력을 서버가 확인한 뒤에만 열립니다.</p>
+      <p className="aiTutorNote">Hint~Similar Example에서는 선택지·정답을 AI에 제공하지 않고 PRE_ANSWER 근거만 검색합니다. Explanation은 실제 제출 확인 후 POST_ATTEMPT 근거까지 허용합니다.</p>
       <div className="aiTutorActions">
         {stages.map((item) => (
           <button
@@ -79,8 +83,25 @@ export function AITutorPanel({
       {message ? <p className="statusMessage">{message}</p> : null}
       {result ? (
         <div className="aiTutorResponse">
-          <div className="aiTutorMeta"><strong>{result.stage}</strong><span>{result.provider}{result.model ? ` · ${result.model}` : ""}{result.fallback ? " · fallback" : ""}</span></div>
+          <div className="aiTutorMeta">
+            <strong>{result.stage}</strong>
+            <span>{result.provider}{result.model ? ` · ${result.model}` : ""}{result.fallback ? " · fallback" : ""} · {result.grounded ? `RAG ${result.sources.length} sources` : `RAG ${result.groundingMode}`}</span>
+          </div>
           <ReactMarkdown>{result.text}</ReactMarkdown>
+          {result.sources.length > 0 ? (
+            <div className="aiTutorSources">
+              <p><strong>근거 (Sources)</strong></p>
+              <ol>
+                {result.sources.map((source) => (
+                  <li key={source.chunkId}>
+                    {isHttpUrl(source.sourceUrl) ? <a href={source.sourceUrl} target="_blank" rel="noreferrer">{source.title}</a> : <strong>{source.title}</strong>}
+                    {source.heading ? ` · ${source.heading}` : ""}
+                    <br /><code>{source.sourcePath}</code> · {Math.round(source.similarity * 100)}%
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
