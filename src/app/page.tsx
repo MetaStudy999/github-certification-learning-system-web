@@ -1,7 +1,7 @@
 const phases = [
   ["P0", "Architecture", "COMPLETE"],
-  ["P1", "Local Environment", "IN PROGRESS"],
-  ["P2", "Content Engine", "PLANNED"],
+  ["P1", "Local Environment", "COMPLETE"],
+  ["P2", "Content Engine", "NEXT"],
   ["P7", "AI Gateway / Tutor", "PLANNED"],
   ["P8", "RAG", "PLANNED"],
   ["P9", "GitHub Labs", "PLANNED"],
@@ -21,13 +21,13 @@ export default function Home() {
       <section className="panel">
         <div className="panelHeader">
           <div>
-            <p className="eyebrow">Current Phase</p>
-            <h2>P1 — Local Development Environment</h2>
+            <p className="eyebrow">Next Phase</p>
+            <h2>P2 — Content Engine</h2>
           </div>
-          <span className="badge">IN PROGRESS</span>
+          <span className="badge">NEXT</span>
         </div>
         <p>
-          Next.js 기반 실행 골격과 Supabase Local, Local AI/Ollama, OpenAI API를 교체 가능한 구조로 준비합니다.
+          P1 로컬 실행환경 검증을 완료했습니다. 다음 단계에서는 메인 GCLS 콘텐츠 저장소를 Source of Truth로 읽는 Content Adapter를 구현합니다.
         </p>
       </section>
 
