@@ -11,6 +11,7 @@ interface WrongAnswerRow {
   course_slug: string;
   set_slug: string;
   question_id: string;
+  source_kind: "QUESTION_BANK" | "MOCK";
   error_code: ErrorCode | null;
   reflection: string | null;
   priority: "HIGH" | "MEDIUM" | "LOW";
@@ -61,7 +62,7 @@ export function WrongAnswerDashboard({ courseSlug }: { courseSlug: string }) {
 
       const { data, error } = await supabase
         .from("wrong_answer_items")
-        .select("id,course_slug,set_slug,question_id,error_code,reflection,priority,status,retry_stage,wrong_count,correct_retry_count,first_wrong_at,next_retry_at")
+        .select("id,course_slug,set_slug,question_id,source_kind,error_code,reflection,priority,status,retry_stage,wrong_count,correct_retry_count,first_wrong_at,next_retry_at")
         .eq("course_slug", courseSlug)
         .order("first_wrong_at", { ascending: false });
 
@@ -135,19 +136,21 @@ export function WrongAnswerDashboard({ courseSlug }: { courseSlug: string }) {
       </section>
 
       {message ? <section className="panel"><p className="statusMessage">{message}</p></section> : null}
-      {!rows.length ? <section className="panel"><p>아직 등록된 오답이 없습니다. Question Bank에서 틀린 문항이 자동으로 이곳에 등록됩니다.</p></section> : null}
+      {!rows.length ? <section className="panel"><p>아직 등록된 오답이 없습니다. Question Bank 또는 Mock에서 틀린 문항이 자동으로 이곳에 등록됩니다.</p></section> : null}
 
       <section className="questionList" aria-label="Wrong answer queue">
         {rows.map((row) => {
           const editor = editors[row.id] ?? { errorCode: "CONCEPT" as ErrorCode, reflection: "" };
           const due = row.next_retry_at ? new Date(row.next_retry_at).getTime() <= Date.now() : false;
-          const retryHref = `/questions/${row.course_slug}/${row.set_slug}?retry=${encodeURIComponent(row.id)}&question=${encodeURIComponent(row.question_id)}#${row.question_id}`;
+          const sourceHref = row.source_kind === "MOCK"
+            ? `/mocks/${row.course_slug}/${row.set_slug}#${row.question_id}`
+            : `/questions/${row.course_slug}/${row.set_slug}?retry=${encodeURIComponent(row.id)}&question=${encodeURIComponent(row.question_id)}#${row.question_id}`;
 
           return (
             <article className="questionCard" key={row.id}>
               <div className="panelHeader">
                 <div>
-                  <p className="eyebrow">{row.question_id} · {row.priority}</p>
+                  <p className="eyebrow">{row.question_id} · {row.priority} · {row.source_kind}</p>
                   <h2>{row.status} · {row.retry_stage}</h2>
                 </div>
                 <span className="badge">오답 {row.wrong_count}회 · Retry 정답 {row.correct_retry_count}회</span>
@@ -190,8 +193,8 @@ export function WrongAnswerDashboard({ courseSlug }: { courseSlug: string }) {
                 <button type="button" disabled={busyId === row.id} onClick={() => saveClassification(row)}>
                   원인/메모 저장
                 </button>
-                {row.status === "OPEN" ? <Link href={retryHref}>{due ? "지금 재도전" : "미리 재도전"}</Link> : null}
-                <Link href={`/questions/${row.course_slug}/${row.set_slug}#${row.question_id}`}>원문 문제 보기</Link>
+                {row.status === "OPEN" ? <Link href={sourceHref}>{row.source_kind === "MOCK" ? "Mock 다시 풀기" : due ? "지금 재도전" : "미리 재도전"}</Link> : null}
+                <Link href={row.source_kind === "MOCK" ? `/mocks/${row.course_slug}/${row.set_slug}#${row.question_id}` : `/questions/${row.course_slug}/${row.set_slug}#${row.question_id}`}>원문 문제 보기</Link>
               </div>
             </article>
           );
