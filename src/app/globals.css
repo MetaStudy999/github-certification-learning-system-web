@@ -13,7 +13,7 @@
 html, body { margin: 0; min-height: 100%; }
 body { background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
 a { color: var(--accent); }
-button, input { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { padding: 10px 14px; border: 0; border-radius: 10px; background: var(--accent); color: #07110f; font-weight: 800; cursor: pointer; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 .buttonSecondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
@@ -72,6 +72,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .answerFeedback p { margin-bottom: 0; }
 .correctFeedback { border-color: var(--accent); }
 .incorrectFeedback { border-color: #d98c8c; }
+.retryFeedback { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.retryFeedback p { margin: 6px 0; }
+
+.wrongAnswerSummary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.wrongAnswerSummary h3 { font-size: 34px; margin: 8px 0; }
+.wrongAnswerEditor { display: grid; gap: 14px; margin-top: 20px; }
+.wrongAnswerEditor label { display: grid; gap: 7px; color: var(--muted); font-size: 14px; }
+.wrongAnswerEditor select,
+.wrongAnswerEditor textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); }
+.wrongAnswerEditor textarea { resize: vertical; line-height: 1.6; }
 
 .markdownDocument { padding: 36px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); line-height: 1.8; }
 .markdownDocument h1:first-child { display: none; }
@@ -90,7 +100,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 760px) {
   .shell { padding-top: 44px; }
-  .grid, .moduleGrid { grid-template-columns: 1fr; }
+  .grid, .moduleGrid, .wrongAnswerSummary { grid-template-columns: 1fr; }
   .panelHeader, .learningHeader, .compactProgress, .progressHeader, .activityList > div, .questionScore { flex-direction: column; align-items: flex-start; }
   .markdownDocument { padding: 22px; }
   .questionCard { padding: 20px; }
