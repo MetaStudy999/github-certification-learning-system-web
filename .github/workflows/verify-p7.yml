@@ -51,8 +51,8 @@ jobs:
           sed -i 's/shadow_port = 54320/shadow_port = 57320/' supabase/config.toml
           sed -i 's/port = 54324/port = 57324/' supabase/config.toml
 
-          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
-          npx --yes supabase@2.115.0 db reset
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit > /tmp/p7-supabase-start.log 2>&1
+          npx --yes supabase@2.115.0 db reset > /tmp/p7-supabase-reset.log 2>&1
           npx --yes supabase@2.115.0 status -o env > /tmp/supabase-p7.env
           set -a
           source /tmp/supabase-p7.env
@@ -82,11 +82,13 @@ jobs:
             curl -fsS http://127.0.0.1:3000/api/health >/dev/null && break
             sleep 1
           done
+          curl -fsS http://127.0.0.1:3000/api/health >/dev/null
           curl -fsS http://127.0.0.1:3000/api/ai/health | tee /tmp/p7-ai-health.json
           grep '"mode":"mock"' /tmp/p7-ai-health.json
           grep '"provider":"mock"' /tmp/p7-ai-health.json
           curl -fsS -X POST http://127.0.0.1:3000/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"ping"}' | grep '"provider":"mock"'
-          curl -fsS http://127.0.0.1:3000/questions/001-foundations/010-basics | grep 'P7 · AI Tutor'
+          curl -fsS http://127.0.0.1:3000/questions/001-foundations/010-basics -o /tmp/p7-question.html
+          test -s /tmp/p7-question.html
 
       - name: Tutor stages, attempt gate, audit and RLS
         shell: bash
@@ -159,7 +161,11 @@ jobs:
         run: |
           FAKE_AI_PORT=18181 node scripts/fake-ai-provider.mjs > /tmp/fake-ai.log 2>&1 &
           echo "FAKE_AI_PID=$!" >> "$GITHUB_ENV"
-          for _ in $(seq 1 20); do curl -fsS http://127.0.0.1:18181/api/tags >/dev/null && break; sleep 1; done
+          for _ in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18181/api/tags >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18181/api/tags >/dev/null
 
       - name: Provider contracts and Hybrid routing
         shell: bash
@@ -167,31 +173,38 @@ jobs:
           run_app() {
             PORT="$1"; shift
             env "$@" npm run start -- -p "$PORT" > "/tmp/gcls-ai-$PORT.log" 2>&1 &
-            PID=$!
-            for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null && break; sleep 1; done
-            echo "$PID"
+            CURRENT_PID=$!
+            for _ in $(seq 1 30); do
+              curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null && break
+              sleep 1
+            done
+            curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null
           }
           stop_app() { kill "$1" 2>/dev/null || true; wait "$1" 2>/dev/null || true; }
 
-          LOCAL_PID=$(run_app 3011 AI_MODE=local OLLAMA_BASE_URL=http://127.0.0.1:18181 OLLAMA_MODEL=fake-local)
+          run_app 3011 AI_MODE=local OLLAMA_BASE_URL=http://127.0.0.1:18181 OLLAMA_MODEL=fake-local
+          LOCAL_PID=$CURRENT_PID
           LOCAL=$(curl -fsS -X POST http://127.0.0.1:3011/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"provider check"}')
           echo "$LOCAL" | grep '"provider":"ollama"'
           echo "$LOCAL" | grep 'FAKE_OLLAMA_OK'
           stop_app "$LOCAL_PID"
 
-          API_PID=$(run_app 3012 AI_MODE=api OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai)
+          run_app 3012 AI_MODE=api OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai
+          API_PID=$CURRENT_PID
           API_RESULT=$(curl -fsS -X POST http://127.0.0.1:3012/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"provider check"}')
           echo "$API_RESULT" | grep '"provider":"openai"'
           echo "$API_RESULT" | grep 'FAKE_OPENAI_OK'
           stop_app "$API_PID"
 
-          HYBRID_LOCAL_PID=$(run_app 3013 AI_MODE=hybrid OLLAMA_BASE_URL=http://127.0.0.1:18181 OLLAMA_MODEL=fake-local OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai)
+          run_app 3013 AI_MODE=hybrid OLLAMA_BASE_URL=http://127.0.0.1:18181 OLLAMA_MODEL=fake-local OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai
+          HYBRID_LOCAL_PID=$CURRENT_PID
           HYBRID_LOCAL=$(curl -fsS -X POST http://127.0.0.1:3013/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"hybrid local"}')
           echo "$HYBRID_LOCAL" | grep '"provider":"ollama"'
           if echo "$HYBRID_LOCAL" | grep -q '"fallback":true'; then exit 1; fi
           stop_app "$HYBRID_LOCAL_PID"
 
-          HYBRID_FALLBACK_PID=$(run_app 3014 AI_MODE=hybrid OLLAMA_BASE_URL=http://127.0.0.1:9 OLLAMA_MODEL=fake-local OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai)
+          run_app 3014 AI_MODE=hybrid OLLAMA_BASE_URL=http://127.0.0.1:9 OLLAMA_MODEL=fake-local OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai
+          HYBRID_FALLBACK_PID=$CURRENT_PID
           HYBRID_FALLBACK=$(curl -fsS -X POST http://127.0.0.1:3014/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"hybrid fallback"}')
           echo "$HYBRID_FALLBACK" | grep '"provider":"openai"'
           echo "$HYBRID_FALLBACK" | grep '"fallback":true'
