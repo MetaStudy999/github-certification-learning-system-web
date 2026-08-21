@@ -77,24 +77,31 @@ jobs:
           USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
           test -n "$ACCESS1" && test -n "$USER1"
 
-          curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/course_progress" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"status\":\"completed\",\"total_modules\":15,\"completed_modules\":15}"
+          echo '[P10] Seed 100 question attempts'
           USER1="$USER1" node -e 'const fs=require("fs");const u=process.env.USER1;const rows=Array.from({length:100},(_,i)=>({user_id:u,course_slug:"001-foundations",set_slug:`set-${Math.floor(i/10)+1}`,question_id:`Q${String(i+1).padStart(3,"0")}`,selected_answer:"A",correct_answer:"A",is_correct:true,source_kind:"QUESTION_BANK"}));fs.writeFileSync("/tmp/p10-q.json",JSON.stringify(rows))'
           curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/question_attempts" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' --data-binary @/tmp/p10-q.json
+
+          echo '[P10] Seed mock scores'
           curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/mock_exam_attempts" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "[{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"010-mock-01\",\"role\":\"DIAGNOSTIC\",\"status\":\"SUBMITTED\",\"recommended_seconds\":3600,\"target_percent\":85,\"total_questions\":40,\"correct_answers\":36,\"score_percent\":90,\"judgment\":\"READY\",\"submitted_at\":\"2026-08-22T00:00:00Z\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"020-mock-02\",\"role\":\"GATE\",\"status\":\"SUBMITTED\",\"recommended_seconds\":3600,\"target_percent\":85,\"total_questions\":40,\"correct_answers\":36,\"score_percent\":90,\"judgment\":\"READY\",\"submitted_at\":\"2026-08-22T00:10:00Z\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"030-final-mock\",\"role\":\"FINAL\",\"status\":\"SUBMITTED\",\"recommended_seconds\":3300,\"target_percent\":90,\"total_questions\":40,\"correct_answers\":38,\"score_percent\":95,\"judgment\":\"EXAM-READY\",\"submitted_at\":\"2026-08-22T00:20:00Z\"}]"
+
+          echo '[P10] Seed P9 PASS attempts and canonical URLs'
           LABS=$(curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/lab_attempts?select=id,lab_slug" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' -H 'Prefer: return=representation' -d "[{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"020-remote-repository\",\"repository_full_name\":\"octo/foundations-lab\",\"status\":\"PASS\",\"rule_version\":\"p9-gh900-v1\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"030-branch-workflow\",\"repository_full_name\":\"octo/foundations-lab\",\"status\":\"PASS\",\"rule_version\":\"p9-gh900-v1\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"040-github-flow\",\"repository_full_name\":\"octo/foundations-lab\",\"status\":\"PASS\",\"rule_version\":\"p9-gh900-v1\"}]" )
           printf '%s' "$LABS" > /tmp/p10-labs.json
           USER1="$USER1" node -e 'const fs=require("fs");const rows=JSON.parse(fs.readFileSync("/tmp/p10-labs.json","utf8"));const checks=rows.map((r,i)=>({attempt_id:r.id,user_id:process.env.USER1,check_code:`evidence.${r.lab_slug}`,object_type:"repository",status:"PASS",message:"CI canonical evidence",canonical_url:`https://github.com/octo/foundations-lab/${i}`}));fs.writeFileSync("/tmp/p10-checks.json",JSON.stringify(checks))'
           curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/lab_verification_checks" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' --data-binary @/tmp/p10-checks.json
 
+          echo '[P10] Add 6 SELF-ATTESTED records'
           for TYPE in ENVIRONMENT LAB_LOCAL REPOSITORY_DOCS EXAM REFLECTION; do curl -fsS -X POST http://127.0.0.1:3000/api/evidence/001-foundations/manual -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d "{\"evidenceType\":\"$TYPE\",\"title\":\"$TYPE evidence\",\"what\":\"performed\",\"why\":\"required\",\"verify\":\"reviewed\",\"result\":\"confirmed\",\"confirmed\":true}" >/dev/null; done
           curl -fsS -X POST http://127.0.0.1:3000/api/evidence/001-foundations/manual -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"evidenceType":"PROJECT","title":"GitHub Collaboration Project","what":"project completed","why":"integrated practice","verify":"rubric reviewed","result":"95 points","scorePercent":95,"confirmed":true,"canonicalUrl":"https://github.com/octo/foundations-lab"}' >/dev/null
 
+          echo '[P10] Generate 9/9 Evidence Package'
           PACKAGE=$(curl -fsS -X POST http://127.0.0.1:3000/api/evidence/001-foundations -H "Authorization: Bearer $ACCESS1")
           printf '%s' "$PACKAGE" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(x.status!=="CLEAR_CANDIDATE"||x.completenessPercent!==100||x.gate.length!==9||!x.gate.every(g=>g.pass)||x.snapshot.practice.answeredQuestions!==100)process.exit(1)'
           MARKDOWN=$(curl -fsS 'http://127.0.0.1:3000/api/evidence/001-foundations/export?format=markdown' -H "Authorization: Bearer $ACCESS1")
           echo "$MARKDOWN" | grep 'CLEAR_CANDIDATE'; echo "$MARKDOWN" | grep 'Question Bank: 100/100'; echo "$MARKDOWN" | grep 'GitHub Evidence'
           if echo "$MARKDOWN" | grep -q "$P10_SERVICE_ROLE_KEY"; then exit 1; fi
 
+          echo '[P10] Verify browser forgery block and cross-user RLS'
           FORGE_STATUS=$(curl -sS -o /tmp/p10-forge.json -w '%{http_code}' -X POST "$P10_SUPABASE_URL/rest/v1/evidence_packages" -H "apikey: $P10_ANON_KEY" -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"package_version\":\"forged\",\"status\":\"CLEAR_CANDIDATE\",\"completeness_percent\":100}")
           test "$FORGE_STATUS" -ge 400
           SIGNUP2=$(curl -fsS "$P10_SUPABASE_URL/auth/v1/signup" -H "apikey: $P10_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
