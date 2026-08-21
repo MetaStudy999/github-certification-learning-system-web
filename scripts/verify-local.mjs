@@ -25,6 +25,12 @@ for (const path of [
   "src/modules/question-bank/question-bank-service.ts",
   "src/app/api/questions/health/route.ts",
   "supabase/migrations/20260821231500_p4_question_bank.sql",
+  "src/modules/wrong-answers/types.ts",
+  "src/modules/wrong-answers/wrong-answer-service.ts",
+  "src/components/wrong-answers/wrong-answer-dashboard.tsx",
+  "src/app/wrong-answers/page.tsx",
+  "src/app/api/wrong-answers/[wrongAnswerId]/classify/route.ts",
+  "supabase/migrations/20260821234500_p5_wrong_answer_engine.sql",
 ]) {
   check(existsSync(resolve(path)), `${path} exists`, `${path} missing`);
 }
@@ -51,6 +57,12 @@ if (localContentAvailable) {
     existsSync(resolve(contentRoot, "001-foundations/080-question-bank/010-basics/README.md")),
     "GH-900 Question Bank source found",
     "GH-900 Question Bank source missing",
+    localContentRequired,
+  );
+  check(
+    existsSync(resolve(contentRoot, "001-foundations/120-wrong-answers/README.md")),
+    "GH-900 Wrong Answer source found",
+    "GH-900 Wrong Answer source missing",
     localContentRequired,
   );
 }
@@ -82,6 +94,14 @@ if (process.env.VERIFY_RUNNING === "1") {
       check(health.questionCount === 100, "GH-900 Q001-Q100 detected", `Expected 100 questions; got ${health.questionCount}`);
     } catch (error) {
       check(false, "Question Bank health endpoint", `Question Bank health request failed: ${String(error)}`);
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/wrong-answers`, { signal: AbortSignal.timeout(5000) });
+      const html = await response.text();
+      check(response.ok && html.includes("GH-900 오답 재학습 Queue"), "P5 Wrong Answer page", `Wrong Answer page failed with HTTP ${response.status}`);
+    } catch (error) {
+      check(false, "P5 Wrong Answer page", `Wrong Answer page request failed: ${String(error)}`);
     }
   }
 } else {
