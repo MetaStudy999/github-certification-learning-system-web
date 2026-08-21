@@ -9,7 +9,7 @@ const ROOT = `${COURSE}/110-mock-exams`;
 const MOCKS = [
   { slug: "010-mock-01", code: "010", title: "Mock Exam 01", role: "DIAGNOSTIC", recommendedMinutes: 60, targetPercent: 85 },
   { slug: "020-mock-02", code: "020", title: "Mock Exam 02", role: "GATE", recommendedMinutes: 60, targetPercent: 85 },
-  { slug: "030-final-mock", code: "030", title: "Final Mock", role: "FINAL", recommendedMinutes: 60, targetPercent: 90 },
+  { slug: "030-final-mock", code: "030", title: "Final Mock", role: "FINAL", recommendedMinutes: 55, targetPercent: 90 },
 ] as const;
 
 export function listMockMetadata() {
