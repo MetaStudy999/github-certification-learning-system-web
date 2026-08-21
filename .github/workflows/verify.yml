@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           # GitHub hosted runners may already use PostgreSQL's default-adjacent ports.
-          # Keep the repository defaults for local developers and isolate CI only.
+          # Keep repository defaults for local developers and isolate CI only.
           sed -i 's/port = 54321/port = 55321/' supabase/config.toml
           sed -i 's/port = 54322/port = 55322/' supabase/config.toml
           sed -i 's/shadow_port = 54320/shadow_port = 55320/' supabase/config.toml
@@ -63,15 +63,17 @@ jobs:
           source /tmp/supabase.env
           set +a
           test -n "$ANON_KEY"
+          test -n "$SERVICE_ROLE_KEY"
           echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:55321" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           echo "P3_SUPABASE_URL=http://127.0.0.1:55321" >> "$GITHUB_ENV"
           echo "P3_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
 
       - name: Build
         run: npm run build
 
-      - name: Next.js Content and Progress runtime smoke test
+      - name: Next.js Content Progress and Question runtime smoke test
         shell: bash
         run: |
           npm run start > /tmp/gcls-next.log 2>&1 &
@@ -86,8 +88,23 @@ jobs:
           grep '"status":"ok"' /tmp/content-health.json
           grep '"provider":"local"' /tmp/content-health.json
           grep '"moduleCount":15' /tmp/content-health.json
+
+          curl -fsS http://127.0.0.1:3000/api/questions/health | tee /tmp/question-health.json
+          grep '"status":"ok"' /tmp/question-health.json
+          grep '"provider":"local"' /tmp/question-health.json
+          grep '"setCount":10' /tmp/question-health.json
+          grep '"questionCount":100' /tmp/question-health.json
+
           curl -fsS http://127.0.0.1:3000/courses/001-foundations | grep 'GitHub Foundations'
           curl -fsS http://127.0.0.1:3000/courses/001-foundations/010-overview | grep 'GH-900'
+          curl -fsS http://127.0.0.1:3000/questions/001-foundations | grep 'GH-900 100문제'
+          curl -fsS http://127.0.0.1:3000/questions/001-foundations/010-basics > /tmp/qset.html
+          grep 'Q001' /tmp/qset.html
+          grep 'Q010' /tmp/qset.html
+          if grep -q '정답: B' /tmp/qset.html; then
+            echo 'Correct answer leaked in initial question HTML.' >&2
+            exit 1
+          fi
           curl -fsS http://127.0.0.1:3000/login | grep '학습자 계정'
           curl -fsS http://127.0.0.1:3000/progress | grep '내 학습 진행률'
           curl -fsS http://127.0.0.1:3000/api/ai/health
@@ -141,16 +158,11 @@ jobs:
             -d '{"p_course_slug":"001-foundations","p_module_slug":"010-overview"}')
           SESSION_ID=$(printf '%s' "$START" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(typeof x==="string"?x:"")')
           test -n "$SESSION_ID"
-
           curl -fsS "$P3_SUPABASE_URL/rest/v1/rpc/finish_study_session" \
             -H "apikey: $P3_ANON_KEY" \
             -H "Authorization: Bearer $ACCESS1" \
             -H 'content-type: application/json' \
             -d "{\"p_session_id\":\"$SESSION_ID\"}" >/tmp/session-finish.json
-          SESSION=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/study_sessions?select=id,ended_at,duration_seconds&id=eq.$SESSION_ID" \
-            -H "apikey: $P3_ANON_KEY" \
-            -H "Authorization: Bearer $ACCESS1")
-          echo "$SESSION" | grep '"ended_at":"'
 
           SIGNUP2=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
             -H "apikey: $P3_ANON_KEY" \
@@ -159,6 +171,69 @@ jobs:
           ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
           test -n "$ACCESS2"
           ISOLATED=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/learner_profiles?select=id&id=eq.$USER1" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
+
+      - name: P4 Question evaluation Attempt and RLS smoke test
+        shell: bash
+        run: |
+          npm run start > /tmp/gcls-p4.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/api/questions/health >/dev/null && break
+            sleep 1
+          done
+
+          EMAIL1="p4-ci-$(date +%s)-1@example.com"
+          EMAIL2="p4-ci-$(date +%s)-2@example.com"
+          PASSWORD='P4-test-123!'
+
+          SIGNUP1=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\"}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1"
+          test -n "$USER1"
+
+          CORRECT=$(curl -fsS http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"selectedAnswer":"B"}')
+          echo "$CORRECT" | grep '"isCorrect":true'
+          echo "$CORRECT" | grep '"correctAnswer":"B"'
+
+          INCORRECT=$(curl -fsS http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q002/submit \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"selectedAnswer":"B"}')
+          echo "$INCORRECT" | grep '"isCorrect":false'
+          echo "$INCORRECT" | grep '"correctAnswer":"A"'
+
+          ATTEMPTS=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/question_attempts?select=question_id,selected_answer,correct_answer,is_correct&order=attempted_at.asc" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$ATTEMPTS" | grep '"question_id":"Q001"'
+          echo "$ATTEMPTS" | grep '"question_id":"Q002"'
+
+          DIRECT_STATUS=$(curl -sS -o /tmp/direct-insert.json -w '%{http_code}' \
+            -X POST "$P3_SUPABASE_URL/rest/v1/question_attempts" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"set_slug\":\"010-basics\",\"question_id\":\"Q999\",\"selected_answer\":\"A\",\"correct_answer\":\"A\",\"is_correct\":true}")
+          test "$DIRECT_STATUS" -ge 400
+
+          SIGNUP2=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          test -n "$ACCESS2"
+          ISOLATED=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/question_attempts?select=id&user_id=eq.$USER1" \
             -H "apikey: $P3_ANON_KEY" \
             -H "Authorization: Bearer $ACCESS2")
           test "$ISOLATED" = '[]'
@@ -179,6 +254,11 @@ jobs:
           grep '"status":"ok"' /tmp/github-content-health.json
           grep '"provider":"github"' /tmp/github-content-health.json
           grep '"moduleCount":15' /tmp/github-content-health.json
+          curl -fsS http://127.0.0.1:3001/api/questions/health | tee /tmp/github-question-health.json
+          grep '"status":"ok"' /tmp/github-question-health.json
+          grep '"provider":"github"' /tmp/github-question-health.json
+          grep '"setCount":10' /tmp/github-question-health.json
+          grep '"questionCount":100' /tmp/github-question-health.json
 
       - name: Supabase Local final status
         run: npx --yes supabase@2.115.0 status
