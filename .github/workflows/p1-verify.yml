@@ -1,0 +1,74 @@
+name: P1 Local Environment Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [p1-local-environment]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Static verification
+        run: npm run verify
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Next.js runtime smoke test
+        shell: bash
+        env:
+          AI_MODE: mock
+        run: |
+          npm run start > /tmp/gcls-next.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+
+          READY=0
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /tmp/gcls-health.json; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            cat /tmp/gcls-next.log
+            exit 1
+          fi
+
+          cat /tmp/gcls-health.json
+          curl -fsS http://127.0.0.1:3000/api/ai/health
+          curl -fsS \
+            -H 'content-type: application/json' \
+            -d '{"prompt":"P1 smoke test"}' \
+            http://127.0.0.1:3000/api/ai/demo | grep '"provider":"mock"'
+          VERIFY_RUNNING=1 npm run verify
+
+      - name: Supabase Local smoke test
+        shell: bash
+        run: |
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+          npx --yes supabase@2.115.0 status
+          npx --yes supabase@2.115.0 stop
