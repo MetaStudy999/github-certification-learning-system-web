@@ -8,6 +8,8 @@
 4. [P1 검증](./040-p1-verification.md)
 5. [P2 콘텐츠 엔진](./050-p2-content-engine.md)
 6. [P2 검증](./060-p2-verification.md)
+7. [P3 사용자·진행률](./070-p3-user-progress.md)
+8. [P3 검증](./080-p3-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -19,3 +21,5 @@
 | 040 | P1 Verification | PASS |
 | 050 | P2 Content Engine | COMPLETE |
 | 060 | P2 Verification | PASS |
+| 070 | P3 User / Progress | COMPLETE |
+| 080 | P3 Verification | PASS |
