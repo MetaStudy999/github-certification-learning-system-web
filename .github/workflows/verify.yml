@@ -48,7 +48,14 @@ jobs:
       - name: Start Supabase and apply migrations
         shell: bash
         run: |
-          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+          # GitHub hosted runners may already use PostgreSQL's default-adjacent ports.
+          # Keep the repository defaults for local developers and isolate CI only.
+          sed -i 's/port = 54321/port = 55321/' supabase/config.toml
+          sed -i 's/port = 54322/port = 55322/' supabase/config.toml
+          sed -i 's/shadow_port = 54320/shadow_port = 55320/' supabase/config.toml
+          sed -i 's/port = 54324/port = 55324/' supabase/config.toml
+
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
           npx --yes supabase@2.115.0 db reset
           npx --yes supabase@2.115.0 status -o env > /tmp/supabase.env
           cat /tmp/supabase.env
@@ -56,9 +63,9 @@ jobs:
           source /tmp/supabase.env
           set +a
           test -n "$ANON_KEY"
-          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:55321" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
-          echo "P3_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          echo "P3_SUPABASE_URL=http://127.0.0.1:55321" >> "$GITHUB_ENV"
           echo "P3_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
 
       - name: Build
