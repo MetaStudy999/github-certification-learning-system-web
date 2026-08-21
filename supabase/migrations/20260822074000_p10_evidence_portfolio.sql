@@ -64,6 +64,7 @@ create policy evidence_items_select_own on public.evidence_items for select to a
 using (auth.uid() = user_id);
 
 grant select, insert, update, delete on public.manual_evidence_records to authenticated;
+grant select, insert, update, delete on public.manual_evidence_records to service_role;
 revoke all on public.evidence_packages from anon, authenticated;
 revoke all on public.evidence_items from anon, authenticated;
 grant select on public.evidence_packages to authenticated;
