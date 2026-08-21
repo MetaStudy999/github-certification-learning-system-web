@@ -1,6 +1,6 @@
 import type { Question, QuestionAnswerKey, QuestionOption, QuestionSet } from "./types";
 
-const QUESTION_HEADING = /^##\s+(Q\d{3})\s*$/gm;
+const QUESTION_HEADING = /^#{2,3}\s+(Q\d{3})\s*$/gm;
 const OPTION_LINE = /^([A-H])\.\s+(.+?)(?:\s{2})?$/gm;
 
 function asAnswerKey(value: string): QuestionAnswerKey {
@@ -8,11 +8,20 @@ function asAnswerKey(value: string): QuestionAnswerKey {
   return value as QuestionAnswerKey;
 }
 
+function extractCorrectAnswer(details: string): QuestionAnswerKey | null {
+  const normalized = details
+    .replace(/^<details><summary>[^<]*<\/summary>\s*/i, "")
+    .replace(/<\/details>[\s\S]*$/i, "")
+    .trim();
+  const match = normalized.match(/^\*\*(?:정답:\s*)?([A-H])\*\*/i);
+  return match ? asAnswerKey(match[1].toUpperCase()) : null;
+}
+
 function cleanExplanation(details: string): string {
   return details
     .replace(/^<details><summary>[^<]*<\/summary>\s*/i, "")
     .replace(/<\/details>[\s\S]*$/i, "")
-    .replace(/\*\*정답:\s*[A-H]\*\*/i, "")
+    .replace(/^\*\*(?:정답:\s*)?[A-H]\*\*\s*/i, "")
     .replace(/^\s*[—-]\s*/, "")
     .trim();
 }
@@ -50,11 +59,9 @@ export function parseQuestionSetMarkdown(input: {
       key: asAnswerKey(option[1]),
       text: option[2].trim(),
     }));
-    const answerMatch = detailsBody.match(/\*\*정답:\s*([A-H])\*\*/i);
+    const correctAnswer = extractCorrectAnswer(detailsBody);
 
-    if (!answerMatch) throw new Error(`${input.slug}/${id}: correct answer not found`);
-
-    const correctAnswer = asAnswerKey(answerMatch[1].toUpperCase());
+    if (!correctAnswer) throw new Error(`${input.slug}/${id}: correct answer not found`);
     if (!options.some((option) => option.key === correctAnswer)) {
       throw new Error(`${input.slug}/${id}: correct answer ${correctAnswer} is not an option`);
     }
