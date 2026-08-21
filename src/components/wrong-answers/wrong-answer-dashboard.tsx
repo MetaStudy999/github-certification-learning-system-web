@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { ERROR_CODES, type ErrorCode } from "@/modules/wrong-answers/wrong-answer-service";
+import { ERROR_CODES, type ErrorCode } from "@/modules/wrong-answers/types";
 
 interface WrongAnswerRow {
   id: string;
@@ -111,6 +111,7 @@ export function WrongAnswerDashboard({ courseSlug }: { courseSlug: string }) {
         ...item,
         error_code: updated.errorCode,
         priority: updated.priority,
+        reflection: editor.reflection,
       } : item));
       setMessage(`${row.question_id} 오답 원인과 학습 메모를 저장했습니다.`);
     } catch (error) {
