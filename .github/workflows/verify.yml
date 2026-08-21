@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [p2-content-engine]
+    branches: [main, "p*"]
 
 permissions:
   contents: read
@@ -45,10 +45,26 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Start Supabase and apply migrations
+        shell: bash
+        run: |
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+          npx --yes supabase@2.115.0 db reset
+          npx --yes supabase@2.115.0 status -o env > /tmp/supabase.env
+          cat /tmp/supabase.env
+          set -a
+          source /tmp/supabase.env
+          set +a
+          test -n "$ANON_KEY"
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "P3_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          echo "P3_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+
       - name: Build
         run: npm run build
 
-      - name: Next.js and Content runtime smoke test
+      - name: Next.js Content and Progress runtime smoke test
         shell: bash
         run: |
           npm run start > /tmp/gcls-next.log 2>&1 &
@@ -65,8 +81,80 @@ jobs:
           grep '"moduleCount":15' /tmp/content-health.json
           curl -fsS http://127.0.0.1:3000/courses/001-foundations | grep 'GitHub Foundations'
           curl -fsS http://127.0.0.1:3000/courses/001-foundations/010-overview | grep 'GH-900'
+          curl -fsS http://127.0.0.1:3000/login | grep '학습자 계정'
+          curl -fsS http://127.0.0.1:3000/progress | grep '내 학습 진행률'
           curl -fsS http://127.0.0.1:3000/api/ai/health
           VERIFY_RUNNING=1 npm run verify
+
+      - name: P3 Auth Progress and RLS smoke test
+        shell: bash
+        run: |
+          EMAIL1="p3-ci-$(date +%s)-1@example.com"
+          EMAIL2="p3-ci-$(date +%s)-2@example.com"
+          PASSWORD='P3-test-123!'
+
+          SIGNUP1=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\",\"data\":{\"display_name\":\"P3 Learner One\"}}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1"
+          test -n "$USER1"
+
+          PROFILE1=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/learner_profiles?select=id,display_name&id=eq.$USER1" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$PROFILE1" | grep 'P3 Learner One'
+
+          VISIT=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/rpc/record_module_visit" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"p_course_slug":"001-foundations","p_module_slug":"010-overview","p_total_modules":15}')
+          echo "$VISIT" | grep '"status": "in_progress"\|"status":"in_progress"'
+
+          COMPLETE=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/rpc/set_module_completion" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"p_course_slug":"001-foundations","p_module_slug":"010-overview","p_completed":true,"p_total_modules":15}')
+          echo "$COMPLETE" | grep '"completed_modules": 1\|"completed_modules":1'
+
+          COURSE=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/course_progress?select=course_slug,status,total_modules,completed_modules&course_slug=eq.001-foundations" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$COURSE" | grep '"completed_modules":1'
+          echo "$COURSE" | grep '"total_modules":15'
+
+          START=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/rpc/start_study_session" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d '{"p_course_slug":"001-foundations","p_module_slug":"010-overview"}')
+          SESSION_ID=$(printf '%s' "$START" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(typeof x==="string"?x:"")')
+          test -n "$SESSION_ID"
+
+          curl -fsS "$P3_SUPABASE_URL/rest/v1/rpc/finish_study_session" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"p_session_id\":\"$SESSION_ID\"}" >/tmp/session-finish.json
+          SESSION=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/study_sessions?select=id,ended_at,duration_seconds&id=eq.$SESSION_ID" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$SESSION" | grep '"ended_at":"'
+
+          SIGNUP2=$(curl -fsS "$P3_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\",\"data\":{\"display_name\":\"P3 Learner Two\"}}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          test -n "$ACCESS2"
+          ISOLATED=$(curl -fsS "$P3_SUPABASE_URL/rest/v1/learner_profiles?select=id&id=eq.$USER1" \
+            -H "apikey: $P3_ANON_KEY" \
+            -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
 
       - name: GitHub Provider fallback smoke test
         shell: bash
@@ -85,9 +173,9 @@ jobs:
           grep '"provider":"github"' /tmp/github-content-health.json
           grep '"moduleCount":15' /tmp/github-content-health.json
 
-      - name: Supabase Local regression smoke test
-        shell: bash
-        run: |
-          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
-          npx --yes supabase@2.115.0 status
-          npx --yes supabase@2.115.0 stop
+      - name: Supabase Local final status
+        run: npx --yes supabase@2.115.0 status
+
+      - name: Stop Supabase Local
+        if: always()
+        run: npx --yes supabase@2.115.0 stop || true
