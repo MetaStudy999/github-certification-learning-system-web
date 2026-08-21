@@ -19,38 +19,40 @@ export class TutorAccessError extends Error {
   }
 }
 
-function publicQuestionText(question: Question): string {
+function questionText(question: Question, includeOptions: boolean): string {
+  if (!includeOptions) return `문제:\n${question.prompt}`;
   const options = question.options.map((option) => `${option.key}. ${option.text}`).join("\n");
   return `문제:\n${question.prompt}\n\n선택지:\n${options}`;
 }
 
 function buildPrompt(stage: TutorStage, question: Question, latestAttempt: LatestAttempt | null): string {
+  const preAnswer = stage !== "EXPLANATION";
   const base = [
     `[GCLS_TUTOR_STAGE:${stage}]`,
     "당신은 GCLS(GitHub Certification Learning System)의 학습 튜터입니다.",
     "한국어로 쉽고 짧게 설명하고, 필요한 기술 용어는 영어 원문을 함께 표기하세요.",
     "AI는 채점하지 않습니다. 정답 판정은 별도의 Source-backed Rule Engine이 담당합니다.",
-    publicQuestionText(question),
+    questionText(question, !preAnswer),
   ];
 
   if (stage === "HINT") {
     return [...base,
-      "학습자가 스스로 풀 수 있도록 핵심 단서 1~2개만 주세요.",
+      "선택지는 제공되지 않았습니다. 학습자가 스스로 풀 수 있도록 문제 본문에서 핵심 단서 1~2개만 찾아 주세요.",
       "원문 문제의 정답 문자, 정답 선택지 문구, 직접적인 정답 선언은 절대 공개하지 마세요.",
     ].join("\n\n");
   }
 
   if (stage === "CONCEPT") {
     return [...base,
-      "이 문제를 풀기 위해 반드시 이해해야 할 핵심 개념을 설명하세요.",
-      "유사 개념과의 차이를 설명하되 원문 문제의 정답 문자나 정답 선택지 문구는 공개하지 마세요.",
+      "선택지는 제공되지 않았습니다. 이 문제를 풀기 위해 반드시 이해해야 할 핵심 개념을 설명하세요.",
+      "유사 개념과의 차이를 설명하되 원문 문제의 정답을 직접 선언하지 마세요.",
     ].join("\n\n");
   }
 
   if (stage === "SIMILAR_EXAMPLE") {
     return [...base,
-      "원문과 답이 직접 연결되지 않는 새로운 유사 상황 예제를 하나 만드세요.",
-      "예제의 사고 과정을 설명하되 원문 문제의 정답 문자나 정답 선택지 문구는 공개하지 마세요.",
+      "선택지는 제공되지 않았습니다. 원문과 답이 직접 연결되지 않는 새로운 유사 상황 예제를 하나 만드세요.",
+      "예제의 사고 과정을 설명하되 원문 문제의 정답을 직접 선언하지 마세요.",
       "마지막에는 '이제 원래 문제를 다시 풀어보세요.'라고 안내하세요.",
     ].join("\n\n");
   }
