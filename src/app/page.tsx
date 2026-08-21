@@ -8,7 +8,8 @@ const phases = [
   ["P4", "Question Bank", "COMPLETE"],
   ["P5", "Wrong Answer Engine", "COMPLETE"],
   ["P6", "Mock / Readiness", "COMPLETE"],
-  ["P7", "AI Gateway / Tutor", "NEXT"],
+  ["P7", "AI Gateway / Tutor", "COMPLETE"],
+  ["P8", "RAG", "NEXT"],
 ] as const;
 
 export default function Home() {
@@ -22,13 +23,13 @@ export default function Home() {
 
       <section className="panel">
         <div className="panelHeader">
-          <div><p className="eyebrow">Learning + Assessment Ready</p><h2>GH-900 Vertical Slice</h2></div>
-          <span className="badge">P6 COMPLETE</span>
+          <div><p className="eyebrow">Learning + Assessment + AI Tutor Ready</p><h2>GH-900 Vertical Slice</h2></div>
+          <span className="badge">P7 COMPLETE</span>
         </div>
-        <p>GH-900 15개 학습 모듈, Q001–Q100 문제은행, 오답 DAY_1/DAY_7 재학습에 이어 3회·120문항 Mock과 Exam Readiness Gate까지 연결합니다.</p>
+        <p>15개 학습 모듈, Q001–Q100 문제은행, DAY_1/DAY_7 오답 재학습, 3회 Mock/Readiness에 이어 AI Tutor의 Hint → Concept → Similar Example → Retry → Explanation까지 연결했습니다.</p>
         <div className="links">
           <Link href="/courses/001-foundations">GH-900 학습</Link>
-          <Link href="/questions/001-foundations">100문제 풀기</Link>
+          <Link href="/questions/001-foundations">100문제 + AI Tutor</Link>
           <Link href="/wrong-answers">오답 재학습</Link>
           <Link href="/mocks/001-foundations">Mock Exams</Link>
           <Link href="/readiness/001-foundations">Exam Readiness</Link>
@@ -44,8 +45,8 @@ export default function Home() {
 
       <section className="panel">
         <p className="eyebrow">Next Phase</p>
-        <h2>P7 — AI Gateway / Tutor</h2>
-        <p>다음 단계에서는 이미 준비된 Mock / Local / API / Hybrid AI Provider를 실제 학습·문제·오답 흐름에 연결하고 Hint → Concept → Retry 중심의 AI Tutor를 구현합니다.</p>
+        <h2>P8 — RAG</h2>
+        <p>다음 단계에서는 GCLS Source of Truth 문서를 Chunk → Embedding → Retrieval하여 AI Tutor가 저장소 근거를 검색하고 인용 가능한 학습 답변을 생성하도록 연결합니다.</p>
       </section>
     </main>
   );

@@ -16,6 +16,8 @@
 12. [P5 검증](./120-p5-verification.md)
 13. [P6 Mock / Readiness](./130-p6-mock-readiness.md)
 14. [P6 검증](./140-p6-verification.md)
+15. [P7 AI Gateway / Tutor](./150-p7-ai-gateway-tutor.md)
+16. [P7 검증](./160-p7-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -35,3 +37,5 @@
 | 120 | P5 Verification | PASS |
 | 130 | P6 Mock / Readiness | COMPLETE |
 | 140 | P6 Verification | PASS |
+| 150 | P7 AI Gateway / Tutor | COMPLETE |
+| 160 | P7 Verification | PASS |
