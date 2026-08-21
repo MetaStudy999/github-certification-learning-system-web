@@ -9,6 +9,7 @@ export const env = {
   aiMode: asAIMode(process.env.AI_MODE),
   ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
   ollamaModel: process.env.OLLAMA_MODEL ?? "",
+  openAIBaseUrl: (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, ""),
   openAIKey: process.env.OPENAI_API_KEY ?? "",
   openAIModel: process.env.OPENAI_MODEL ?? "",
   contentDir: process.env.GCLS_CONTENT_DIR ?? "../github-certification-learning-system",

@@ -1,0 +1,218 @@
+name: GCLS Web P7 Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [p7-ai-gateway-tutor]
+
+permissions:
+  contents: read
+
+jobs:
+  p7-verify:
+    runs-on: ubuntu-24.04
+    env:
+      AI_MODE: mock
+      GCLS_CONTENT_PROVIDER: local
+      GCLS_CONTENT_DIR: ${{ github.workspace }}/.gcls-content
+      GCLS_CONTENT_REPOSITORY: MetaStudy999/github-certification-learning-system
+      GCLS_CONTENT_REF: main
+
+    steps:
+      - name: Checkout web repository
+        uses: actions/checkout@v6
+
+      - name: Checkout content repository
+        uses: actions/checkout@v6
+        with:
+          repository: MetaStudy999/github-certification-learning-system
+          ref: main
+          path: .gcls-content
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Start Supabase and apply P7 migrations
+        shell: bash
+        run: |
+          sed -i 's/port = 54321/port = 57321/' supabase/config.toml
+          sed -i 's/port = 54322/port = 57322/' supabase/config.toml
+          sed -i 's/shadow_port = 54320/shadow_port = 57320/' supabase/config.toml
+          sed -i 's/port = 54324/port = 57324/' supabase/config.toml
+
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit > /tmp/p7-supabase-start.log 2>&1
+          npx --yes supabase@2.115.0 db reset > /tmp/p7-supabase-reset.log 2>&1
+          npx --yes supabase@2.115.0 status -o env > /tmp/supabase-p7.env
+          set -a
+          source /tmp/supabase-p7.env
+          set +a
+          test -n "$ANON_KEY"
+          test -n "$SERVICE_ROLE_KEY"
+          test -n "$SECRET_KEY"
+          echo "::add-mask::$ANON_KEY"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          echo "::add-mask::$SECRET_KEY"
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:57321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=$SECRET_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "P7_SUPABASE_URL=http://127.0.0.1:57321" >> "$GITHUB_ENV"
+          echo "P7_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: npm run build
+
+      - name: Start mock-mode application
+        shell: bash
+        run: |
+          AI_MODE=mock npm run start > /tmp/gcls-p7-mock.log 2>&1 &
+          echo "APP_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/api/health >/dev/null
+          curl -fsS http://127.0.0.1:3000/api/ai/health | tee /tmp/p7-ai-health.json
+          grep '"mode":"mock"' /tmp/p7-ai-health.json
+          grep '"provider":"mock"' /tmp/p7-ai-health.json
+          curl -fsS -X POST http://127.0.0.1:3000/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"ping"}' | grep '"provider":"mock"'
+          curl -fsS http://127.0.0.1:3000/questions/001-foundations/010-basics -o /tmp/p7-question.html
+          test -s /tmp/p7-question.html
+
+      - name: Tutor stages, attempt gate, audit and RLS
+        shell: bash
+        run: |
+          EMAIL1="p7-ci-$(date +%s)-1@example.com"
+          EMAIL2="p7-ci-$(date +%s)-2@example.com"
+          PASSWORD='P7-test-123!'
+
+          SIGNUP1=$(curl -fsS "$P7_SUPABASE_URL/auth/v1/signup" -H "apikey: $P7_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\"}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1"
+          test -n "$USER1"
+
+          tutor() {
+            curl -fsS -X POST http://127.0.0.1:3000/api/ai/tutor \
+              -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' \
+              -d "{\"courseSlug\":\"001-foundations\",\"setSlug\":\"010-basics\",\"questionId\":\"Q001\",\"stage\":\"$1\"}"
+          }
+
+          HINT=$(tutor HINT)
+          echo "$HINT" | grep '"stage":"HINT"'
+          echo "$HINT" | grep '"provider":"mock"'
+          echo "$HINT" | grep '"answerRevealAllowed":false'
+
+          CONCEPT=$(tutor CONCEPT)
+          echo "$CONCEPT" | grep '"stage":"CONCEPT"'
+          SIMILAR=$(tutor SIMILAR_EXAMPLE)
+          echo "$SIMILAR" | grep '"stage":"SIMILAR_EXAMPLE"'
+
+          BEFORE_STATUS=$(curl -sS -o /tmp/p7-before-explanation.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/ai/tutor \
+            -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' \
+            -d '{"courseSlug":"001-foundations","setSlug":"010-basics","questionId":"Q001","stage":"EXPLANATION"}')
+          test "$BEFORE_STATUS" = '409'
+
+          ATTEMPT=$(curl -fsS -X POST http://127.0.0.1:3000/api/questions/001-foundations/010-basics/Q001/submit \
+            -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"selectedAnswer":"A"}')
+          echo "$ATTEMPT" | grep 'attemptId'
+
+          EXPLANATION=$(tutor EXPLANATION)
+          echo "$EXPLANATION" | grep '"stage":"EXPLANATION"'
+          echo "$EXPLANATION" | grep '"answerRevealAllowed":true'
+
+          ROWS=$(curl -fsS "$P7_SUPABASE_URL/rest/v1/ai_interactions?select=stage,provider,fallback&order=created_at.asc" \
+            -H "apikey: $P7_ANON_KEY" -H "Authorization: Bearer $ACCESS1")
+          echo "$ROWS" | grep '"stage":"HINT"'
+          echo "$ROWS" | grep '"stage":"CONCEPT"'
+          echo "$ROWS" | grep '"stage":"SIMILAR_EXAMPLE"'
+          echo "$ROWS" | grep '"stage":"EXPLANATION"'
+
+          DIRECT_STATUS=$(curl -sS -o /tmp/p7-direct.json -w '%{http_code}' -X POST "$P7_SUPABASE_URL/rest/v1/ai_interactions" \
+            -H "apikey: $P7_ANON_KEY" -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' \
+            -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"set_slug\":\"010-basics\",\"question_id\":\"Q001\",\"stage\":\"HINT\",\"ai_mode\":\"mock\",\"provider\":\"forged\",\"request_chars\":1,\"response_text\":\"x\",\"latency_ms\":1}")
+          test "$DIRECT_STATUS" -ge 400
+
+          SIGNUP2=$(curl -fsS "$P7_SUPABASE_URL/auth/v1/signup" -H "apikey: $P7_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          test -n "$ACCESS2"
+          ISOLATED=$(curl -fsS "$P7_SUPABASE_URL/rest/v1/ai_interactions?select=id&user_id=eq.$USER1" -H "apikey: $P7_ANON_KEY" -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
+
+      - name: Stop mock-mode application
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${APP_PID:-}" ]; then kill "$APP_PID" 2>/dev/null || true; wait "$APP_PID" 2>/dev/null || true; fi
+
+      - name: Start fake Ollama and OpenAI compatible server
+        shell: bash
+        run: |
+          FAKE_AI_PORT=18181 node scripts/fake-ai-provider.mjs > /tmp/fake-ai.log 2>&1 &
+          echo "FAKE_AI_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18181/api/tags >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18181/api/tags >/dev/null
+
+      - name: Provider contracts and Hybrid routing
+        shell: bash
+        run: |
+          run_app() {
+            PORT="$1"; shift
+            env "$@" npm run start -- -p "$PORT" > "/tmp/gcls-ai-$PORT.log" 2>&1 &
+            CURRENT_PID=$!
+            for _ in $(seq 1 30); do
+              curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null && break
+              sleep 1
+            done
+            curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null
+          }
+          stop_app() { kill "$1" 2>/dev/null || true; wait "$1" 2>/dev/null || true; }
+
+          run_app 3011 AI_MODE=local OLLAMA_BASE_URL=http://127.0.0.1:18181 OLLAMA_MODEL=fake-local
+          LOCAL_PID=$CURRENT_PID
+          LOCAL=$(curl -fsS -X POST http://127.0.0.1:3011/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"provider check"}')
+          echo "$LOCAL" | grep '"provider":"ollama"'
+          echo "$LOCAL" | grep 'FAKE_OLLAMA_OK'
+          stop_app "$LOCAL_PID"
+
+          run_app 3012 AI_MODE=api OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai
+          API_PID=$CURRENT_PID
+          API_RESULT=$(curl -fsS -X POST http://127.0.0.1:3012/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"provider check"}')
+          echo "$API_RESULT" | grep '"provider":"openai"'
+          echo "$API_RESULT" | grep 'FAKE_OPENAI_OK'
+          stop_app "$API_PID"
+
+          run_app 3013 AI_MODE=hybrid OLLAMA_BASE_URL=http://127.0.0.1:18181 OLLAMA_MODEL=fake-local OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai
+          HYBRID_LOCAL_PID=$CURRENT_PID
+          HYBRID_LOCAL=$(curl -fsS -X POST http://127.0.0.1:3013/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"hybrid local"}')
+          echo "$HYBRID_LOCAL" | grep '"provider":"ollama"'
+          if echo "$HYBRID_LOCAL" | grep -q '"fallback":true'; then exit 1; fi
+          stop_app "$HYBRID_LOCAL_PID"
+
+          run_app 3014 AI_MODE=hybrid OLLAMA_BASE_URL=http://127.0.0.1:9 OLLAMA_MODEL=fake-local OPENAI_BASE_URL=http://127.0.0.1:18181/v1 OPENAI_API_KEY=test-openai-key OPENAI_MODEL=fake-openai
+          HYBRID_FALLBACK_PID=$CURRENT_PID
+          HYBRID_FALLBACK=$(curl -fsS -X POST http://127.0.0.1:3014/api/ai/demo -H 'content-type: application/json' -d '{"prompt":"hybrid fallback"}')
+          echo "$HYBRID_FALLBACK" | grep '"provider":"openai"'
+          echo "$HYBRID_FALLBACK" | grep '"fallback":true'
+          stop_app "$HYBRID_FALLBACK_PID"
+
+      - name: Stop fake AI and Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${FAKE_AI_PID:-}" ]; then kill "$FAKE_AI_PID" 2>/dev/null || true; fi
+          npx --yes supabase@2.115.0 stop || true

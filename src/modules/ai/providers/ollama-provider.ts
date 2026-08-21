@@ -29,6 +29,7 @@ export class OllamaProvider implements AIProvider {
         messages: [{ role: "user", content: request.prompt }],
         stream: false,
       }),
+      signal: AbortSignal.timeout(30_000),
       cache: "no-store",
     });
 
