@@ -15,17 +15,16 @@ check(major >= 22, `Node ${process.version}`, `Node 22+ required; current ${proc
 
 for (const path of [
   "package.json",
-  "package-lock.json",
   "tsconfig.json",
   "next.config.ts",
   ".env.example",
   "src/app/page.tsx",
   "src/modules/content/content-service.ts",
   "src/app/api/content/health/route.ts",
-  "src/app/login/page.tsx",
-  "src/app/progress/page.tsx",
-  "src/lib/supabase/browser.ts",
-  "supabase/migrations/20260821123000_p3_user_progress.sql",
+  "src/modules/question-bank/parser.ts",
+  "src/modules/question-bank/question-bank-service.ts",
+  "src/app/api/questions/health/route.ts",
+  "supabase/migrations/20260821231500_p4_question_bank.sql",
 ]) {
   check(existsSync(resolve(path)), `${path} exists`, `${path} missing`);
 }
@@ -47,6 +46,15 @@ check(
   localContentRequired,
 );
 
+if (localContentAvailable) {
+  check(
+    existsSync(resolve(contentRoot, "001-foundations/080-question-bank/010-basics/README.md")),
+    "GH-900 Question Bank source found",
+    "GH-900 Question Bank source missing",
+    localContentRequired,
+  );
+}
+
 if (process.env.VERIFY_RUNNING === "1") {
   const baseUrl = process.env.VERIFY_BASE_URL ?? "http://127.0.0.1:3000";
   try {
@@ -64,6 +72,16 @@ if (process.env.VERIFY_RUNNING === "1") {
       check(health.moduleCount === 15, "GH-900 15 modules detected", `Expected 15 modules; got ${health.moduleCount}`);
     } catch (error) {
       check(false, "Content health endpoint", `Content health request failed: ${String(error)}`);
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/api/questions/health`, { signal: AbortSignal.timeout(10000) });
+      const health = await response.json();
+      check(response.ok && health.status === "ok", "Question Bank health endpoint", `Question Bank health failed: ${JSON.stringify(health)}`);
+      check(health.setCount === 10, "GH-900 10 question sets detected", `Expected 10 sets; got ${health.setCount}`);
+      check(health.questionCount === 100, "GH-900 Q001-Q100 detected", `Expected 100 questions; got ${health.questionCount}`);
+    } catch (error) {
+      check(false, "Question Bank health endpoint", `Question Bank health request failed: ${String(error)}`);
     }
   }
 } else {

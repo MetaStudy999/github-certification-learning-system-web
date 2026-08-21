@@ -25,6 +25,7 @@ export default async function CoursePage({ params }: CoursePageProps) {
           <p className="eyebrow">{course.code} · {course.exam}</p>
           <h1>{course.title}</h1>
           <p className="lead">Content Provider: <strong>{provider}</strong> · {modules.length} modules</p>
+          <div className="links"><Link href={`/questions/${course.slug}`}>100문제 Question Bank →</Link><Link href="/progress">내 진행률</Link></div>
         </section>
 
         <CourseProgressPanel courseSlug={course.slug} totalModules={modules.length} />
