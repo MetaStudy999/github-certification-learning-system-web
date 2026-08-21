@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdminClient, verifySupabaseAccessToken } from "@/lib/supabase/server";
-import { ContentNotFoundError } from "@/modules/content/core/provider";
 import { generateTutorResponse, TutorAccessError } from "@/modules/ai/tutor/tutor-service";
 import { TUTOR_STAGES, type TutorStage } from "@/modules/ai/tutor/types";
+import { ContentNotFoundError } from "@/modules/content/core/provider";
+import { RagGroundingError } from "@/modules/rag/errors";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof ContentNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
     if (error instanceof TutorAccessError) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (error instanceof RagGroundingError) {
+      return NextResponse.json({ error: error.message, code: "RAG_NOT_READY" }, { status: 503 });
+    }
     if (error instanceof Error && error.message === "invalid access token") {
       return NextResponse.json({ error: "invalid access token" }, { status: 401 });
     }
