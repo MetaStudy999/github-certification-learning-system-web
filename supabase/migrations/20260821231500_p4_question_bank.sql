@@ -23,8 +23,12 @@ create policy question_attempts_select_own
 on public.question_attempts for select to authenticated
 using (auth.uid() = user_id);
 
+-- Browser clients may only read their own attempts. They cannot forge scores.
 revoke all on public.question_attempts from anon, authenticated;
 grant select on public.question_attempts to authenticated;
+
+-- Server-side grading writes through a Supabase secret/service-role credential.
+grant select, insert on public.question_attempts to service_role;
 
 comment on table public.question_attempts is
   'P4 attempt history. Writes are performed only by the server after source-backed answer evaluation.';
