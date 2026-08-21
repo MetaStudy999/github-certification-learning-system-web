@@ -123,7 +123,8 @@ async function verifyGitHubFlow(client: GitHubRestClient, input: GitHubLabVerify
     const defaultBranch = String(repoCheck?.metadata?.defaultBranch ?? "");
     const headOk = Boolean(branchName) && pr.head.ref === branchName;
     const baseOk = Boolean(defaultBranch) && pr.base.ref === defaultBranch;
-    const issueLinkOk = Boolean(issueNumber) && closingIssuePattern(issueNumber).test(pr.body ?? "");
+    const validIssueNumber = typeof issueNumber === "number" && Number.isInteger(issueNumber) && issueNumber > 0;
+    const issueLinkOk = validIssueNumber && closingIssuePattern(issueNumber).test(pr.body ?? "");
     const stateOk = pr.state === "open" || pr.merged || pr.merged_at !== null;
     const ok = headOk && baseOk && issueLinkOk && stateOk;
     const metadata = { head: pr.head.ref, base: pr.base.ref, merged: pr.merged, state: pr.state, issueLinkOk };
