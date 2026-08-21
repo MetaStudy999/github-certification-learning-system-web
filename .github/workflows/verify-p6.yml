@@ -1,0 +1,215 @@
+name: GCLS Web P6 Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [p6-mock-readiness]
+
+permissions:
+  contents: read
+
+jobs:
+  p6-verify:
+    runs-on: ubuntu-24.04
+    env:
+      AI_MODE: mock
+      GCLS_CONTENT_PROVIDER: local
+      GCLS_CONTENT_DIR: ${{ github.workspace }}/.gcls-content
+      GCLS_CONTENT_REPOSITORY: MetaStudy999/github-certification-learning-system
+      GCLS_CONTENT_REF: main
+
+    steps:
+      - name: Checkout web repository
+        uses: actions/checkout@v6
+
+      - name: Checkout content repository
+        uses: actions/checkout@v6
+        with:
+          repository: MetaStudy999/github-certification-learning-system
+          ref: main
+          path: .gcls-content
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Start Supabase and apply P6 migrations
+        shell: bash
+        run: |
+          sed -i 's/port = 54321/port = 56321/' supabase/config.toml
+          sed -i 's/port = 54322/port = 56322/' supabase/config.toml
+          sed -i 's/shadow_port = 54320/shadow_port = 56320/' supabase/config.toml
+          sed -i 's/port = 54324/port = 56324/' supabase/config.toml
+
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
+          npx --yes supabase@2.115.0 db reset
+          npx --yes supabase@2.115.0 status -o env > /tmp/supabase-p6.env
+          set -a
+          source /tmp/supabase-p6.env
+          set +a
+          test -n "$ANON_KEY"
+          test -n "$SERVICE_ROLE_KEY"
+          test -n "$SECRET_KEY"
+          echo "::add-mask::$ANON_KEY"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          echo "::add-mask::$SECRET_KEY"
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:56321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=$SECRET_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "P6_SUPABASE_URL=http://127.0.0.1:56321" >> "$GITHUB_ENV"
+          echo "P6_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: npm run build
+
+      - name: Start production server and verify public Mock surface
+        shell: bash
+        run: |
+          npm run start > /tmp/gcls-p6-next.log 2>&1 &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> "$GITHUB_ENV"
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/api/health >/dev/null && break
+            sleep 1
+          done
+
+          curl -fsS http://127.0.0.1:3000/api/mocks/health | tee /tmp/p6-health.json
+          grep '"status":"ok"' /tmp/p6-health.json
+          grep '"examCount":3' /tmp/p6-health.json
+          grep '"questionCount":120' /tmp/p6-health.json
+
+          curl -fsS http://127.0.0.1:3000/mocks/001-foundations/010-mock-01 > /tmp/mock01.html
+          grep 'Mock Exam 01' /tmp/mock01.html
+          grep 'Q01' /tmp/mock01.html
+          if grep -q 'Git은 분산 버전 관리 시스템입니다.' /tmp/mock01.html; then
+            echo 'Mock answer explanation leaked before submission.' >&2
+            exit 1
+          fi
+
+          curl -fsS http://127.0.0.1:3000/mocks/001-foundations/030-final-mock | grep '55'
+          curl -fsS http://127.0.0.1:3000/readiness/001-foundations | grep 'Exam Readiness'
+
+      - name: P6 Mock attempts, P5 retry integration, Readiness and RLS
+        shell: bash
+        run: |
+          EMAIL1="p6-ci-$(date +%s)-1@example.com"
+          EMAIL2="p6-ci-$(date +%s)-2@example.com"
+          PASSWORD='P6-test-123!'
+
+          SIGNUP1=$(curl -fsS "$P6_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P6_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\"}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1"
+          test -n "$USER1"
+
+          build_answers() {
+            node -e 'const fs=require("fs");const text=fs.readFileSync(process.argv[1],"utf8");const selections={};for(const line of text.split(/\r?\n/)){const m=line.match(/^\|\s*(\d{2})\s*\|\s*([A-H])\s*\|/);if(m)selections[`Q${m[1]}`]=m[2];}if(Object.keys(selections).length!==40)throw new Error(`expected 40 answers, got ${Object.keys(selections).length}`);process.stdout.write(JSON.stringify({selections}));' "$1"
+          }
+
+          MOCK1_ANS=$(build_answers "$GCLS_CONTENT_DIR/001-foundations/110-mock-exams/010-mock-01/answers.md")
+          MOCK2_ANS=$(build_answers "$GCLS_CONTENT_DIR/001-foundations/110-mock-exams/020-mock-02/answers.md")
+          FINAL_ANS=$(build_answers "$GCLS_CONTENT_DIR/001-foundations/110-mock-exams/030-final-mock/answers.md")
+          MOCK1_WRONG=$(printf '%s' "$MOCK1_ANS" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));x.selections.Q01=x.selections.Q01==="A"?"B":"A";process.stdout.write(JSON.stringify(x))')
+
+          start_mock() {
+            curl -fsS -X POST "http://127.0.0.1:3000/api/mocks/001-foundations/$1/start" \
+              -H "Authorization: Bearer $ACCESS1" | \
+              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.attemptId||"")'
+          }
+
+          submit_mock() {
+            curl -fsS -X POST "http://127.0.0.1:3000/api/mocks/attempts/$1/submit" \
+              -H "Authorization: Bearer $ACCESS1" \
+              -H 'content-type: application/json' \
+              --data-binary "$2"
+          }
+
+          ATTEMPT1=$(start_mock '010-mock-01')
+          test -n "$ATTEMPT1"
+          RESULT1=$(submit_mock "$ATTEMPT1" "$MOCK1_WRONG")
+          echo "$RESULT1" | grep '"correctAnswers":39'
+          echo "$RESULT1" | grep '"scorePercent":97.5'
+
+          WRONG=$(curl -fsS "$P6_SUPABASE_URL/rest/v1/wrong_answer_items?select=id,question_id,status,retry_stage,source_kind&course_slug=eq.001-foundations&set_slug=eq.010-mock-01&question_id=eq.Q01" \
+            -H "apikey: $P6_ANON_KEY" -H "Authorization: Bearer $ACCESS1")
+          echo "$WRONG" | grep '"source_kind":"MOCK"'
+          echo "$WRONG" | grep '"retry_stage":"DAY_1"'
+
+          ATTEMPT2=$(start_mock '010-mock-01')
+          submit_mock "$ATTEMPT2" "$MOCK1_ANS" >/tmp/p6-mock1-retry1.json
+          RETRY1=$(curl -fsS "$P6_SUPABASE_URL/rest/v1/wrong_answer_items?select=id,status,retry_stage,correct_retry_count&set_slug=eq.010-mock-01&question_id=eq.Q01" \
+            -H "apikey: $P6_ANON_KEY" -H "Authorization: Bearer $ACCESS1")
+          echo "$RETRY1" | grep '"retry_stage":"DAY_7"'
+
+          ATTEMPT3=$(start_mock '010-mock-01')
+          submit_mock "$ATTEMPT3" "$MOCK1_ANS" >/tmp/p6-mock1-retry2.json
+          RETRY2=$(curl -fsS "$P6_SUPABASE_URL/rest/v1/wrong_answer_items?select=id,status,retry_stage,correct_retry_count&set_slug=eq.010-mock-01&question_id=eq.Q01" \
+            -H "apikey: $P6_ANON_KEY" -H "Authorization: Bearer $ACCESS1")
+          echo "$RETRY2" | grep '"status":"CLOSED"'
+          echo "$RETRY2" | grep '"retry_stage":"CLOSED"'
+
+          ATTEMPT4=$(start_mock '020-mock-02')
+          RESULT4=$(submit_mock "$ATTEMPT4" "$MOCK2_ANS")
+          echo "$RESULT4" | grep '"scorePercent":100'
+
+          ATTEMPT5=$(start_mock '030-final-mock')
+          RESULT5=$(submit_mock "$ATTEMPT5" "$FINAL_ANS")
+          echo "$RESULT5" | grep '"scorePercent":100'
+
+          MOCK_ROWS=$(curl -fsS "$P6_SUPABASE_URL/rest/v1/mock_exam_attempts?select=mock_slug,status,score_percent&order=submitted_at.asc" \
+            -H "apikey: $P6_ANON_KEY" -H "Authorization: Bearer $ACCESS1")
+          echo "$MOCK_ROWS" | grep '"mock_slug":"010-mock-01"'
+          echo "$MOCK_ROWS" | grep '"mock_slug":"020-mock-02"'
+          echo "$MOCK_ROWS" | grep '"mock_slug":"030-final-mock"'
+
+          curl -fsS -X POST http://127.0.0.1:3000/api/readiness/001-foundations/study-guide \
+            -H "Authorization: Bearer $ACCESS1" >/tmp/p6-study-guide.json
+          grep 'confirmedAt' /tmp/p6-study-guide.json
+
+          READINESS=$(curl -fsS http://127.0.0.1:3000/api/readiness/001-foundations \
+            -H "Authorization: Bearer $ACCESS1")
+          echo "$READINESS" | grep '"status":"EXAM-READY"'
+          echo "$READINESS" | grep '"readinessPercent":100'
+          echo "$READINESS" | grep '"recentTwo":true'
+          echo "$READINESS" | grep '"wrongAnswerRetry":true'
+
+          DIRECT_STATUS=$(curl -sS -o /tmp/p6-direct.json -w '%{http_code}' \
+            -X POST "$P6_SUPABASE_URL/rest/v1/mock_exam_attempts" \
+            -H "apikey: $P6_ANON_KEY" -H "Authorization: Bearer $ACCESS1" \
+            -H 'content-type: application/json' \
+            -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"fake\",\"role\":\"DIAGNOSTIC\",\"recommended_seconds\":60,\"target_percent\":85}")
+          test "$DIRECT_STATUS" -ge 400
+
+          SIGNUP2=$(curl -fsS "$P6_SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $P6_ANON_KEY" \
+            -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          test -n "$ACCESS2"
+          ISOLATED=$(curl -fsS "$P6_SUPABASE_URL/rest/v1/mock_exam_attempts?select=id&user_id=eq.$USER1" \
+            -H "apikey: $P6_ANON_KEY" -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
+
+      - name: Stop application
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${APP_PID:-}" ]; then kill "$APP_PID" 2>/dev/null || true; fi
+
+      - name: Stop Supabase Local
+        if: always()
+        run: npx --yes supabase@2.115.0 stop || true

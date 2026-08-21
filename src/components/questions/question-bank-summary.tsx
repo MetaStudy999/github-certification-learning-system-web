@@ -28,6 +28,7 @@ export function QuestionBankSummary({ courseSlug, totalQuestions }: { courseSlug
         .from("question_attempts")
         .select("question_id,is_correct,attempted_at")
         .eq("course_slug", courseSlug)
+        .eq("source_kind", "QUESTION_BANK")
         .order("attempted_at", { ascending: false })
         .limit(1000);
       setAttempts((data ?? []) as AttemptRow[]);

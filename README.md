@@ -2,12 +2,12 @@
 
 GitHub 자격증 학습 콘텐츠를 웹 기반 **학습·훈련·평가·실습·AI 튜터·증빙·포트폴리오** 경험으로 제공하는 애플리케이션입니다.
 
-> **현재 단계 (Current Phase, CP): P5 COMPLETE → P6 NEXT**  
-> P0 Architecture, P1 Local Environment, P2 Content Engine, P3 User / Progress, P4 Question Bank, P5 Wrong Answer Engine을 완료했습니다. 다음 단계는 모의고사와 Exam Readiness Gate를 연결하는 P6 Mock / Readiness입니다.
+> **현재 단계 (Current Phase, CP): P6 COMPLETE → P7 NEXT**  
+> P0 Architecture부터 P6 Mock / Readiness까지 GH-900 Vertical Slice를 완료했습니다. 다음 단계는 AI Provider를 실제 학습 흐름에 연결하는 P7 AI Gateway / Tutor입니다.
 
 ## 빠른 시작 (Quick Start, QS)
 
-권장 배치는 콘텐츠 레포와 Web 레포를 sibling으로 둡니다.
+콘텐츠 레포와 Web 레포를 sibling으로 배치합니다.
 
 ```text
 workspace/
@@ -24,194 +24,151 @@ npm run supabase:status
 npm run dev
 ```
 
-Local Supabase 상태에서 확인한 공개용 anon/publishable credential은 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`에 넣습니다. 문제풀이 Attempt와 오답 상태의 서버 측 저장에는 Local `SECRET_KEY` 또는 `SERVICE_ROLE_KEY`를 각각 `SUPABASE_SECRET_KEY` 또는 `SUPABASE_SERVICE_ROLE_KEY`에 넣습니다. 서버 전용 credential은 절대 `NEXT_PUBLIC_*`로 노출하거나 Git에 커밋하지 않습니다.
+Local Supabase의 publishable/anon credential은 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`에 넣습니다. 서버 채점·오답·Mock·Readiness 쓰기에는 `SUPABASE_SECRET_KEY` 또는 `SUPABASE_SERVICE_ROLE_KEY`를 사용합니다. 서버 전용 credential은 `NEXT_PUBLIC_*`에 넣거나 Git에 커밋하지 않습니다.
 
-주요 화면:
+## 주요 화면
 
-- `/courses`
-- `/courses/001-foundations`
-- `/courses/001-foundations/010-overview`
-- `/questions/001-foundations`
-- `/questions/001-foundations/010-basics`
-- `/wrong-answers`
-- `/login`
-- `/progress`
+- `/courses/001-foundations` — GH-900 15개 학습 모듈
+- `/questions/001-foundations` — Q001–Q100 문제은행
+- `/wrong-answers` — 오답 원인·DAY_1/DAY_7 Retry Queue
+- `/mocks/001-foundations` — Mock 01 / Mock 02 / Final Mock
+- `/readiness/001-foundations` — Exam Readiness Gate
+- `/progress` — 개인별 학습 진행률
+- `/login` — 학습자 Auth
+
+Health API:
+
 - `/api/content/health`
 - `/api/questions/health`
+- `/api/mocks/health`
+- `/api/ai/health`
 
 ## 저장소 역할
 
 | 저장소 | 역할 |
 |---|---|
 | [`github-certification-learning-system`](https://github.com/MetaStudy999/github-certification-learning-system) | 학습 콘텐츠 Source of Truth — 001~006, 문제은행, 모의고사, 실습, 증빙, 포트폴리오 |
-| `github-certification-learning-system-web` | Web Application — 학습 UI, Question/Training Engine, Wrong Answer Engine, AI Tutor, RAG, 사용자 Progress, GitHub Verification |
+| `github-certification-learning-system-web` | Web Application — Learning, Question, Wrong Answer, Mock, Readiness, AI Tutor, RAG, Progress, GitHub Verification |
 
 ## 기술 성장 경로 (Technology Evolution Path, TEP)
 
 ```text
 LEVEL 1 — LOCAL
 Next.js + Supabase Local + PostgreSQL + Ollama + OpenAI API(optional)
-
         ↓
-
 LEVEL 2 — MVP CLOUD
 Vercel + Supabase Cloud + GitHub + OpenAI
-
         ↓
-
 LEVEL 3 — PRODUCTION CLOUD
 AWS 또는 GCP
 ```
 
-## Content Engine
+## 현재 학습 흐름
 
 ```text
 GCLS Content Repository
         ↓
-Content Provider
-   ├─ local
-   ├─ github
-   └─ auto = Local First → GitHub Fallback
+Content Provider (local / github / auto)
         ↓
-001 GitHub Foundations / GH-900
+GH-900 15 Modules
         ↓
-15 Standard Modules
+Q001–Q100 Question Bank
         ↓
-README.md → Markdown/GFM → Learning UI
-```
-
-학습 본문과 문제 원문은 Web DB나 TypeScript에 복제하지 않습니다. Web은 실행 시 메인 콘텐츠 저장소를 읽습니다.
-
-## User / Progress
-
-```text
-Supabase Auth
-     ↓
-auth.users
-     ↓
-learner_profiles
-     │
-     ├─ course_progress
-     ├─ module_progress
-     └─ study_sessions
-          ↓
-       RLS
-          ↓
-사용자별 학습 Dashboard
-```
-
-- 이메일 가입/로그인
-- 신규 Auth 사용자 → Learner Profile 자동 생성
-- GH-900 15개 모듈 방문 및 완료 기록
-- 과정 완료 개수와 진행률 계산
-- 학습 세션 시작/종료 및 시간 기록
-- RLS(Row Level Security)로 사용자 간 데이터 격리
-
-## Question Bank
-
-```text
-GH-900 Q001–Q100
-       ↓
-Markdown Question Parser
-       ↓
-Public Question
-정답·해설 제외
-       ↓
-Question UI
-       ↓
 Server-side Evaluation
-       ↓
-question_attempts
-       ↓
-RLS + Score / Accuracy
-       ↓
+        ↓
 Wrong Answer Engine
+DAY_1 → DAY_7 → CLOSED
+        ↓
+Mock 01 → Mock 02 → Final Mock
+        ↓
+Exam Readiness Gate
+        ↓
+P7 AI Tutor
 ```
+
+콘텐츠 원문과 정답을 Web DB나 TypeScript에 복제하지 않습니다. Web은 실행 시 메인 콘텐츠 저장소를 읽고, DB에는 사용자 상태와 실행 결과만 저장합니다.
+
+## P4 Question Bank
 
 - 10개 세트 × 10문항 = **100문항**
-- 메인 콘텐츠의 두 Markdown 표기 형식을 모두 파싱
-- 최초 문제 화면에는 정답·해설을 전달하지 않음
-- 답 제출 후 서버가 Source of Truth를 다시 읽어 판정
-- Attempt 기록은 server-only credential로 저장
-- Browser는 자신의 Attempt SELECT만 가능하며 직접 INSERT는 차단
-- 사용자 간 Attempt 데이터는 RLS로 격리
+- 문제 화면에서는 정답·해설 비노출
+- 서버가 Source of Truth를 다시 읽어 채점
+- `question_attempts` 저장 및 RLS 사용자 격리
+- Browser 직접 Attempt INSERT 차단
 
-## 오답 엔진 (Wrong Answer Engine, WAE)
+## P5 Wrong Answer Engine
 
-```text
-Question Bank 오답
-       ↓
-wrong_answer_items
-       ↓
-Error Code + Reflection
-       ↓
-OPEN / DAY_1
-       ↓
-DAY_1 Retry
-  ├─ 오답 → HIGH / DAY_1 재시작
-  └─ 정답 → OPEN / DAY_7
-                 ↓
-             DAY_7 Retry
-              ├─ 오답 → HIGH / DAY_1 재시작
-              └─ 정답 → CLOSED
-```
-
-- Source of Truth의 6개 오답 원인 코드 지원
-  - `CONCEPT / COMPARE / READING / MEMORY / PRACTICE / SCOPE`
-- 오답마다 학습 Reflection 기록
+- 원인 코드: `CONCEPT / COMPARE / READING / MEMORY / PRACTICE / SCOPE`
 - Priority: `HIGH / MEDIUM / LOW`
-- 동일 문항 2회 이상 오류 또는 Retry 실패 시 `HIGH`
-- `next_retry_at`으로 +1일/+7일 복습 일정 관리
-- P5 MVP에서는 예정일 이전의 수동 Retry도 허용
-- Retry Audit을 `wrong_answer_retries`에 별도 저장
-- Browser는 본인 Queue SELECT만 가능하며 상태 변경은 server-only
-- 사용자 간 Wrong Answer 데이터는 RLS로 격리
+- `DAY_1 → DAY_7 → CLOSED`
+- Retry 실패 시 `HIGH / DAY_1` 재시작
+- `wrong_answer_retries` Audit
+- Browser SELECT only / server-only 상태 변경
+
+## P6 Mock / Readiness
+
+| 시험 | 문항 | 권장 시간 | 목표 |
+|---|---:|---:|---:|
+| Mock 01 | 40 | 60분 | 85%+ |
+| Mock 02 | 40 | 60분 | 85%+ |
+| Final Mock | 40 | **55분** | 90%+ 권장 |
+
+- `questions.md` / `answers.md` 분리 유지
+- 제출 전 정답·해설 Client 비노출
+- Mock Start → 전체 Submit → 서버 채점
+- `mock_exam_attempts` / `mock_exam_answers` 저장
+- Mock 오답은 P5 Queue와 연동
+- Question Bank와 Mock Attempt는 `source_kind`로 분리
+
+Exam Readiness Gate:
+
+1. Mock 01 85%+
+2. Mock 02 85%+
+3. 최근 2회 연속 85%+
+4. Final Mock 90%+ 권장
+5. 최근 오답 Retry 90%+
+6. 최신 공식 Study Guide 확인
+
+6/6 충족 시 `EXAM-READY`입니다.
 
 ## AI 모드
 
 | Mode | 역할 |
 |---|---|
-| `mock` | 외부 서비스 없이 결정론적 개발/테스트 |
+| `mock` | 결정론적 개발/테스트 |
 | `local` | Ollama |
 | `api` | OpenAI API |
 | `hybrid` | Ollama 우선, 실패 시 OpenAI API fallback |
 
-## P5 검증 결과
+P7에서는 이 Provider 골격을 `Hint → Concept → Similar Example → Retry → Explanation` 학습 흐름과 연결합니다.
 
-GitHub Actions Ubuntu 24.04에서 다음을 검증했습니다.
+## 검증
 
-- `npm ci` / Static Verify / TypeScript PASS
-- Supabase Local P3 + P4 + P5 migration / `db reset` PASS
-- Next.js Build / Production Runtime PASS
-- P3 User / Progress 회귀검사 PASS
-- P4 Question Bank / Attempt / RLS 회귀검사 PASS
-- Ordinary Incorrect → `MEDIUM / OPEN / DAY_1` PASS
-- Error Code / Reflection 저장 PASS
-- DAY_1 Correct → `OPEN / DAY_7` PASS
-- DAY_7 Correct → `CLOSED` PASS
-- Retry Incorrect → `HIGH / DAY_1` PASS
-- Retry Audit 저장 PASS
-- Browser 직접 Wrong Answer INSERT 차단 PASS
-- 사용자 2명 간 Wrong Answer RLS 격리 PASS
-- Local / GitHub Content Provider 회귀검사 PASS
+P6까지 GitHub Actions Ubuntu 24.04에서 다음 기준을 검증합니다.
 
-상세: [P5 Verification](./docs/development/120-p5-verification.md)
+- Static Verify / TypeScript / Next.js Build
+- Supabase P3~P6 migrations + `db reset`
+- Local / GitHub Content Provider
+- P3 Auth / Progress / RLS
+- P4 Question Bank / Attempt / RLS
+- P5 Wrong Answer State Machine / RLS
+- P6 3 Mock / 120문항 / 정답 비노출
+- Mock 제출·서버 채점·P5 Retry 통합
+- Exam Readiness 6개 Gate
+- Browser 직접 Write 차단
+- Cross-user RLS isolation
+
+상세: [P6 Verification](./docs/development/140-p6-verification.md)
 
 ## 문서 맵
 
 - [Architecture](./docs/architecture/README.md)
 - [ADR](./docs/adr/README.md)
 - [Development](./docs/development/README.md)
-- [P1 Local Environment](./docs/development/030-p1-local-environment.md)
-- [P1 Verification](./docs/development/040-p1-verification.md)
-- [P2 Content Engine](./docs/development/050-p2-content-engine.md)
-- [P2 Verification](./docs/development/060-p2-verification.md)
-- [P3 User / Progress](./docs/development/070-p3-user-progress.md)
-- [P3 Verification](./docs/development/080-p3-verification.md)
-- [P4 Question Bank](./docs/development/090-p4-question-bank.md)
-- [P4 Verification](./docs/development/100-p4-verification.md)
 - [P5 Wrong Answer Engine](./docs/development/110-p5-wrong-answer-engine.md)
 - [P5 Verification](./docs/development/120-p5-verification.md)
+- [P6 Mock / Readiness](./docs/development/130-p6-mock-readiness.md)
+- [P6 Verification](./docs/development/140-p6-verification.md)
 
 ## 현재 상태
 
@@ -223,8 +180,8 @@ GitHub Actions Ubuntu 24.04에서 다음을 검증했습니다.
 | P3 User / Progress | **COMPLETE** |
 | P4 Question Bank | **COMPLETE** |
 | P5 Wrong Answer Engine | **COMPLETE** |
-| P6 Mock / Readiness | **NEXT** |
-| P7 AI Gateway / Tutor | PLANNED |
+| P6 Mock / Readiness | **COMPLETE** |
+| P7 AI Gateway / Tutor | **NEXT** |
 | P8 RAG | PLANNED |
 | P9 Labs / GitHub API | PLANNED |
 | P10 Evidence / Portfolio | PLANNED |
