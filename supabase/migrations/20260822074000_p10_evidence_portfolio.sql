@@ -72,6 +72,12 @@ grant select on public.evidence_items to authenticated;
 grant select, insert, update, delete on public.evidence_packages to service_role;
 grant select, insert, update, delete on public.evidence_items to service_role;
 
+-- P10 aggregates P3 learner/course state on the server. P3 originally exposed these
+-- tables to authenticated browser sessions, so grant only the SELECT capability that
+-- the P10 server-side evidence projection needs.
+grant select on public.learner_profiles to service_role;
+grant select on public.course_progress to service_role;
+
 comment on table public.manual_evidence_records is 'P10 learner self-attested evidence for facts that GCLS cannot independently verify.';
 comment on table public.evidence_packages is 'P10 server-generated reproducible evidence snapshot. CLEAR_CANDIDATE is not an automatic certification result.';
 comment on table public.evidence_items is 'P10 normalized evidence pointers and quality-gate rows for portfolio projection.';
