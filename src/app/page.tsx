@@ -10,7 +10,8 @@ const phases = [
   ["P6", "Mock / Readiness", "COMPLETE"],
   ["P7", "AI Gateway / Tutor", "COMPLETE"],
   ["P8", "RAG", "COMPLETE"],
-  ["P9", "Labs / GitHub API", "NEXT"],
+  ["P9", "Labs / GitHub API", "COMPLETE"],
+  ["P10", "Evidence / Portfolio", "NEXT"],
 ] as const;
 
 export default function Home() {
@@ -24,16 +25,17 @@ export default function Home() {
 
       <section className="panel">
         <div className="panelHeader">
-          <div><p className="eyebrow">Learning + Assessment + Grounded AI Ready</p><h2>GH-900 Vertical Slice</h2></div>
-          <span className="badge">P8 COMPLETE</span>
+          <div><p className="eyebrow">Learning + Assessment + Grounded AI + GitHub Verification Ready</p><h2>GH-900 Vertical Slice</h2></div>
+          <span className="badge">P9 COMPLETE</span>
         </div>
-        <p>15개 학습 모듈, Q001–Q100 문제은행, 오답 재학습, 3회 Mock/Readiness, 단계별 AI Tutor에 이어 GCLS Source of Truth 기반 RAG Grounding까지 연결했습니다.</p>
+        <p>학습/문제/오답/Mock/Readiness/RAG Tutor에 이어 실제 GitHub Repository · Branch · Commit · Issue · PR · Actions 수행 결과를 PASS/RETRY로 검증합니다.</p>
         <div className="links">
           <Link href="/courses/001-foundations">GH-900 학습</Link>
           <Link href="/questions/001-foundations">100문제 + RAG AI Tutor</Link>
           <Link href="/wrong-answers">오답 재학습</Link>
           <Link href="/mocks/001-foundations">Mock Exams</Link>
           <Link href="/readiness/001-foundations">Exam Readiness</Link>
+          <Link href="/labs/001-foundations">GitHub Labs 검증</Link>
           <Link href="/progress">내 진행률</Link>
         </div>
       </section>
@@ -46,8 +48,8 @@ export default function Home() {
 
       <section className="panel">
         <p className="eyebrow">Next Phase</p>
-        <h2>P9 — Labs / GitHub API</h2>
-        <p>다음 단계에서는 학습자가 실제 GitHub에서 수행한 Repository, Branch, Commit, Issue, Pull Request, Actions 작업을 API로 검증하고 PASS/RETRY 및 Evidence로 연결합니다.</p>
+        <h2>P10 — Evidence / Portfolio</h2>
+        <p>다음 단계에서는 Progress, Question, Wrong Answer, Mock, Readiness, AI/RAG, GitHub Lab Verification을 하나의 GH-900 Evidence Package와 Portfolio로 통합합니다.</p>
       </section>
     </main>
   );

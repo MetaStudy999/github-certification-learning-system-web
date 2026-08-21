@@ -1,0 +1,147 @@
+name: GCLS Web P9 Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [p9-github-labs]
+
+permissions:
+  contents: read
+
+jobs:
+  p9-verify:
+    runs-on: ubuntu-24.04
+    env:
+      AI_MODE: mock
+      RAG_GROUNDING_MODE: off
+      GCLS_CONTENT_PROVIDER: local
+      GCLS_CONTENT_DIR: ${{ github.workspace }}/.gcls-content
+      GITHUB_API_BASE_URL: http://127.0.0.1:19191
+      GITHUB_TOKEN_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      FAKE_GITHUB_TOKEN: github_pat_test_p9_abcdefghijklmnopqrstuvwxyz
+
+    steps:
+      - name: Checkout web repository
+        uses: actions/checkout@v6
+
+      - name: Checkout content repository
+        uses: actions/checkout@v6
+        with:
+          repository: MetaStudy999/github-certification-learning-system
+          ref: main
+          path: .gcls-content
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Start Supabase and apply P9 migrations
+        shell: bash
+        run: |
+          sed -i 's/port = 54321/port = 59321/' supabase/config.toml
+          sed -i 's/port = 54322/port = 59322/' supabase/config.toml
+          sed -i 's/shadow_port = 54320/shadow_port = 59320/' supabase/config.toml
+          sed -i 's/port = 54324/port = 59324/' supabase/config.toml
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit > /tmp/p9-supabase-start.log 2>&1
+          npx --yes supabase@2.115.0 db reset > /tmp/p9-supabase-reset.log 2>&1
+          npx --yes supabase@2.115.0 status -o env > /tmp/supabase-p9.env
+          set -a
+          source /tmp/supabase-p9.env
+          set +a
+          test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY" && test -n "$SECRET_KEY"
+          echo "::add-mask::$ANON_KEY"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          echo "::add-mask::$SECRET_KEY"
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:59321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=$SECRET_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "P9_SUPABASE_URL=http://127.0.0.1:59321" >> "$GITHUB_ENV"
+          echo "P9_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "P9_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: npm run build
+
+      - name: Start fake GitHub API and application
+        shell: bash
+        run: |
+          FAKE_GITHUB_PORT=19191 node scripts/fake-github-api.mjs > /tmp/fake-github.log 2>&1 &
+          echo "FAKE_GITHUB_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 20); do curl -fsS -H "Authorization: Bearer $FAKE_GITHUB_TOKEN" http://127.0.0.1:19191/user >/dev/null && break; sleep 1; done
+          npm run start > /tmp/gcls-p9.log 2>&1 &
+          echo "APP_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/api/health >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/labs/001-foundations -o /tmp/p9-labs.html
+          test -s /tmp/p9-labs.html
+
+      - name: GitHub connection encryption, lab PASS/RETRY, audit and RLS
+        shell: bash
+        run: |
+          EMAIL1="p9-ci-$(date +%s)-1@example.com"
+          EMAIL2="p9-ci-$(date +%s)-2@example.com"
+          PASSWORD='P9-test-123!'
+          SIGNUP1=$(curl -fsS "$P9_SUPABASE_URL/auth/v1/signup" -H "apikey: $P9_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\"}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1" && test -n "$USER1"
+
+          INITIAL=$(curl -fsS http://127.0.0.1:3000/api/github/connection -H "Authorization: Bearer $ACCESS1")
+          echo "$INITIAL" | grep '"connected":false'
+
+          BAD_STATUS=$(curl -sS -o /tmp/p9-bad-token.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/github/connection -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"token":"github_pat_invalid_abcdefghijklmnopqrstuvwxyz"}')
+          test "$BAD_STATUS" = '400'
+
+          CONNECT=$(curl -fsS -X POST http://127.0.0.1:3000/api/github/connection -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d "{\"token\":\"$FAKE_GITHUB_TOKEN\"}")
+          echo "$CONNECT" | grep '"connected":true'
+          echo "$CONNECT" | grep '"githubLogin":"p9-ci"'
+          if echo "$CONNECT" | grep -q "$FAKE_GITHUB_TOKEN"; then exit 1; fi
+
+          DIRECT_CONNECTION_STATUS=$(curl -sS -o /tmp/p9-direct-connection.json -w '%{http_code}' "$P9_SUPABASE_URL/rest/v1/github_connections?select=*" -H "apikey: $P9_ANON_KEY" -H "Authorization: Bearer $ACCESS1")
+          test "$DIRECT_CONNECTION_STATUS" -ge 400
+
+          ENCRYPTED=$(curl -fsS "$P9_SUPABASE_URL/rest/v1/github_connections?select=token_ciphertext,token_iv,token_tag,token_fingerprint&user_id=eq.$USER1" -H "apikey: $P9_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P9_SERVICE_ROLE_KEY")
+          printf '%s' "$ENCRYPTED" | FAKE_TOKEN="$FAKE_GITHUB_TOKEN" node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(x.length!==1||!x[0].token_ciphertext||!x[0].token_iv||!x[0].token_tag||x[0].token_ciphertext.includes(process.env.FAKE_TOKEN))process.exit(1)'
+
+          FLOW=$(curl -fsS -X POST http://127.0.0.1:3000/api/github/labs/verify -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"courseSlug":"001-foundations","labSlug":"040-github-flow","repositoryFullName":"octo/github-foundations-lab","branchName":"feature/p9","commitSha":"1111111111111111111111111111111111111111","issueNumber":7,"pullRequestNumber":8}')
+          printf '%s' "$FLOW" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(x.status!=="PASS"||!x.checks.some(c=>c.checkCode==="pull_request.flow"&&c.status==="PASS"))process.exit(1)'
+
+          ACTIONS=$(curl -fsS -X POST http://127.0.0.1:3000/api/github/labs/verify -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"courseSlug":"001-foundations","labSlug":"080-modern-development","repositoryFullName":"octo/github-foundations-lab"}')
+          printf '%s' "$ACTIONS" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(x.status!=="PASS"||!x.checks.some(c=>c.checkCode==="actions.workflow"&&c.status==="PASS"))process.exit(1)'
+
+          RETRY=$(curl -fsS -X POST http://127.0.0.1:3000/api/github/labs/verify -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"courseSlug":"001-foundations","labSlug":"030-branch-workflow","repositoryFullName":"octo/github-foundations-lab","branchName":"missing"}')
+          printf '%s' "$RETRY" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(x.status!=="RETRY"||!x.checks.some(c=>c.checkCode==="branch.exists"&&c.status==="FAIL"))process.exit(1)'
+
+          HISTORY=$(curl -fsS http://127.0.0.1:3000/api/github/labs/attempts -H "Authorization: Bearer $ACCESS1")
+          printf '%s' "$HISTORY" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(!Array.isArray(x.attempts)||x.attempts.length<3)process.exit(1)'
+
+          DIRECT_ATTEMPT_STATUS=$(curl -sS -o /tmp/p9-direct-attempt.json -w '%{http_code}' -X POST "$P9_SUPABASE_URL/rest/v1/lab_attempts" -H "apikey: $P9_ANON_KEY" -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"040-github-flow\",\"repository_full_name\":\"forged/repo\",\"status\":\"PASS\",\"rule_version\":\"forged\"}")
+          test "$DIRECT_ATTEMPT_STATUS" -ge 400
+
+          SIGNUP2=$(curl -fsS "$P9_SUPABASE_URL/auth/v1/signup" -H "apikey: $P9_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          test -n "$ACCESS2"
+          ISOLATED=$(curl -fsS "$P9_SUPABASE_URL/rest/v1/lab_attempts?select=id&user_id=eq.$USER1" -H "apikey: $P9_ANON_KEY" -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
+
+          curl -fsS -X DELETE http://127.0.0.1:3000/api/github/connection -H "Authorization: Bearer $ACCESS1" | grep '"connected":false'
+          AFTER_DISCONNECT=$(curl -sS -o /tmp/p9-after-disconnect.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/github/labs/verify -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"courseSlug":"001-foundations","labSlug":"020-remote-repository","repositoryFullName":"octo/github-foundations-lab"}')
+          test "$AFTER_DISCONNECT" = '409'
+
+      - name: Stop application, fake GitHub and Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${APP_PID:-}" ]; then kill "$APP_PID" 2>/dev/null || true; wait "$APP_PID" 2>/dev/null || true; fi
+          if [ -n "${FAKE_GITHUB_PID:-}" ]; then kill "$FAKE_GITHUB_PID" 2>/dev/null || true; fi
+          npx --yes supabase@2.115.0 stop || true
