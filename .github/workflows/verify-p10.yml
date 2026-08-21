@@ -1,0 +1,109 @@
+name: GCLS Web P10 Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [p10-evidence-portfolio]
+
+permissions:
+  contents: read
+
+jobs:
+  p10-verify:
+    runs-on: ubuntu-24.04
+    env:
+      AI_MODE: mock
+      RAG_GROUNDING_MODE: off
+      GCLS_CONTENT_PROVIDER: local
+      GCLS_CONTENT_DIR: ${{ github.workspace }}/.gcls-content
+
+    steps:
+      - name: Checkout web repository
+        uses: actions/checkout@v6
+      - name: Checkout content repository
+        uses: actions/checkout@v6
+        with:
+          repository: MetaStudy999/github-certification-learning-system
+          ref: main
+          path: .gcls-content
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Type check
+        run: npm run typecheck
+      - name: Start Supabase and apply P10 migrations
+        shell: bash
+        run: |
+          sed -i 's/port = 54321/port = 60321/' supabase/config.toml
+          sed -i 's/port = 54322/port = 60322/' supabase/config.toml
+          sed -i 's/shadow_port = 54320/shadow_port = 60320/' supabase/config.toml
+          sed -i 's/port = 54324/port = 60324/' supabase/config.toml
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit > /tmp/p10-supabase-start.log 2>&1
+          npx --yes supabase@2.115.0 db reset > /tmp/p10-supabase-reset.log 2>&1
+          npx --yes supabase@2.115.0 status -o env > /tmp/supabase-p10.env
+          set -a; source /tmp/supabase-p10.env; set +a
+          test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY" && test -n "$SECRET_KEY"
+          echo "::add-mask::$ANON_KEY"; echo "::add-mask::$SERVICE_ROLE_KEY"; echo "::add-mask::$SECRET_KEY"
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:60321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=$SECRET_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "P10_SUPABASE_URL=http://127.0.0.1:60321" >> "$GITHUB_ENV"
+          echo "P10_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "P10_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+      - name: Build
+        run: npm run build
+      - name: Start application
+        shell: bash
+        run: |
+          npm run start > /tmp/gcls-p10.log 2>&1 &
+          echo "APP_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/api/health >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/evidence/001-foundations -o /tmp/p10-evidence.html
+          curl -fsS http://127.0.0.1:3000/portfolio/001-foundations -o /tmp/p10-portfolio.html
+          test -s /tmp/p10-evidence.html && test -s /tmp/p10-portfolio.html
+      - name: Evidence package, export, portfolio and RLS
+        shell: bash
+        run: |
+          EMAIL1="p10-ci-$(date +%s)-1@example.com"; EMAIL2="p10-ci-$(date +%s)-2@example.com"; PASSWORD='P10-test-123!'
+          SIGNUP1=$(curl -fsS "$P10_SUPABASE_URL/auth/v1/signup" -H "apikey: $P10_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL1\",\"password\":\"$PASSWORD\"}")
+          ACCESS1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          USER1=$(printf '%s' "$SIGNUP1" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.user?.id||"")')
+          test -n "$ACCESS1" && test -n "$USER1"
+
+          curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/course_progress" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"status\":\"completed\",\"total_modules\":15,\"completed_modules\":15}"
+          USER1="$USER1" node -e 'const fs=require("fs");const u=process.env.USER1;const rows=Array.from({length:100},(_,i)=>({user_id:u,course_slug:"001-foundations",set_slug:`set-${Math.floor(i/10)+1}`,question_id:`Q${String(i+1).padStart(3,"0")}`,selected_answer:"A",correct_answer:"A",is_correct:true,source_kind:"QUESTION_BANK"}));fs.writeFileSync("/tmp/p10-q.json",JSON.stringify(rows))'
+          curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/question_attempts" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' --data-binary @/tmp/p10-q.json
+          curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/mock_exam_attempts" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "[{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"010-mock-01\",\"role\":\"DIAGNOSTIC\",\"status\":\"SUBMITTED\",\"recommended_seconds\":3600,\"target_percent\":85,\"total_questions\":40,\"correct_answers\":36,\"score_percent\":90,\"judgment\":\"READY\",\"submitted_at\":\"2026-08-22T00:00:00Z\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"020-mock-02\",\"role\":\"GATE\",\"status\":\"SUBMITTED\",\"recommended_seconds\":3600,\"target_percent\":85,\"total_questions\":40,\"correct_answers\":36,\"score_percent\":90,\"judgment\":\"READY\",\"submitted_at\":\"2026-08-22T00:10:00Z\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"mock_slug\":\"030-final-mock\",\"role\":\"FINAL\",\"status\":\"SUBMITTED\",\"recommended_seconds\":3300,\"target_percent\":90,\"total_questions\":40,\"correct_answers\":38,\"score_percent\":95,\"judgment\":\"EXAM-READY\",\"submitted_at\":\"2026-08-22T00:20:00Z\"}]"
+          LABS=$(curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/lab_attempts?select=id,lab_slug" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' -H 'Prefer: return=representation' -d "[{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"020-remote-repository\",\"repository_full_name\":\"octo/foundations-lab\",\"status\":\"PASS\",\"rule_version\":\"p9-gh900-v1\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"030-branch-workflow\",\"repository_full_name\":\"octo/foundations-lab\",\"status\":\"PASS\",\"rule_version\":\"p9-gh900-v1\"},{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"lab_slug\":\"040-github-flow\",\"repository_full_name\":\"octo/foundations-lab\",\"status\":\"PASS\",\"rule_version\":\"p9-gh900-v1\"}]" )
+          printf '%s' "$LABS" > /tmp/p10-labs.json
+          USER1="$USER1" node -e 'const fs=require("fs");const rows=JSON.parse(fs.readFileSync("/tmp/p10-labs.json","utf8"));const checks=rows.map((r,i)=>({attempt_id:r.id,user_id:process.env.USER1,check_code:`evidence.${r.lab_slug}`,object_type:"repository",status:"PASS",message:"CI canonical evidence",canonical_url:`https://github.com/octo/foundations-lab/${i}`}));fs.writeFileSync("/tmp/p10-checks.json",JSON.stringify(checks))'
+          curl -fsS -X POST "$P10_SUPABASE_URL/rest/v1/lab_verification_checks" -H "apikey: $P10_SERVICE_ROLE_KEY" -H "Authorization: Bearer $P10_SERVICE_ROLE_KEY" -H 'content-type: application/json' --data-binary @/tmp/p10-checks.json
+
+          for TYPE in ENVIRONMENT LAB_LOCAL REPOSITORY_DOCS EXAM REFLECTION; do curl -fsS -X POST http://127.0.0.1:3000/api/evidence/001-foundations/manual -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d "{\"evidenceType\":\"$TYPE\",\"title\":\"$TYPE evidence\",\"what\":\"performed\",\"why\":\"required\",\"verify\":\"reviewed\",\"result\":\"confirmed\",\"confirmed\":true}" >/dev/null; done
+          curl -fsS -X POST http://127.0.0.1:3000/api/evidence/001-foundations/manual -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d '{"evidenceType":"PROJECT","title":"GitHub Collaboration Project","what":"project completed","why":"integrated practice","verify":"rubric reviewed","result":"95 points","scorePercent":95,"confirmed":true,"canonicalUrl":"https://github.com/octo/foundations-lab"}' >/dev/null
+
+          PACKAGE=$(curl -fsS -X POST http://127.0.0.1:3000/api/evidence/001-foundations -H "Authorization: Bearer $ACCESS1")
+          printf '%s' "$PACKAGE" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));if(x.status!=="CLEAR_CANDIDATE"||x.completenessPercent!==100||x.gate.length!==9||!x.gate.every(g=>g.pass)||x.snapshot.practice.answeredQuestions!==100)process.exit(1)'
+          MARKDOWN=$(curl -fsS 'http://127.0.0.1:3000/api/evidence/001-foundations/export?format=markdown' -H "Authorization: Bearer $ACCESS1")
+          echo "$MARKDOWN" | grep 'CLEAR_CANDIDATE'; echo "$MARKDOWN" | grep 'Question Bank: 100/100'; echo "$MARKDOWN" | grep 'GitHub Evidence'
+          if echo "$MARKDOWN" | grep -q "$P10_SERVICE_ROLE_KEY"; then exit 1; fi
+
+          FORGE_STATUS=$(curl -sS -o /tmp/p10-forge.json -w '%{http_code}' -X POST "$P10_SUPABASE_URL/rest/v1/evidence_packages" -H "apikey: $P10_ANON_KEY" -H "Authorization: Bearer $ACCESS1" -H 'content-type: application/json' -d "{\"user_id\":\"$USER1\",\"course_slug\":\"001-foundations\",\"package_version\":\"forged\",\"status\":\"CLEAR_CANDIDATE\",\"completeness_percent\":100}")
+          test "$FORGE_STATUS" -ge 400
+          SIGNUP2=$(curl -fsS "$P10_SUPABASE_URL/auth/v1/signup" -H "apikey: $P10_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL2\",\"password\":\"$PASSWORD\"}")
+          ACCESS2=$(printf '%s' "$SIGNUP2" | node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(x.access_token||"")')
+          ISOLATED=$(curl -fsS "$P10_SUPABASE_URL/rest/v1/evidence_packages?select=id&user_id=eq.$USER1" -H "apikey: $P10_ANON_KEY" -H "Authorization: Bearer $ACCESS2")
+          test "$ISOLATED" = '[]'
+      - name: Stop application and Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${APP_PID:-}" ]; then kill "$APP_PID" 2>/dev/null || true; wait "$APP_PID" 2>/dev/null || true; fi
+          npx --yes supabase@2.115.0 stop || true
