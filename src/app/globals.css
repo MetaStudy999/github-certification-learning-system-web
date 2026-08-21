@@ -57,6 +57,22 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .activityList > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .activityList span { color: var(--muted); }
 
+.questionScore { display: flex; align-items: center; justify-content: space-between; }
+.questionScore h2 { font-size: 36px; margin: 4px 0; }
+.questionList { display: grid; gap: 22px; }
+.questionCard { padding: 28px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.questionPrompt { font-size: 20px; line-height: 1.65; }
+.questionPrompt p { margin: 8px 0 18px; }
+.questionOptions { display: grid; gap: 10px; margin-top: 18px; }
+.questionOption { display: grid; grid-template-columns: auto auto 1fr; gap: 10px; align-items: start; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); cursor: pointer; }
+.questionOption input { margin-top: 5px; }
+.questionOption p { margin: 0; }
+.selectedOption { border-color: var(--accent); background: var(--surface-2); }
+.answerFeedback { margin-top: 20px; padding: 18px; border-radius: 12px; border: 1px solid var(--line); line-height: 1.65; }
+.answerFeedback p { margin-bottom: 0; }
+.correctFeedback { border-color: var(--accent); }
+.incorrectFeedback { border-color: #d98c8c; }
+
 .markdownDocument { padding: 36px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); line-height: 1.8; }
 .markdownDocument h1:first-child { display: none; }
 .markdownDocument h2 { margin-top: 2em; padding-bottom: 0.35em; border-bottom: 1px solid var(--line); }
@@ -75,8 +91,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (max-width: 760px) {
   .shell { padding-top: 44px; }
   .grid, .moduleGrid { grid-template-columns: 1fr; }
-  .panelHeader, .learningHeader, .compactProgress, .progressHeader, .activityList > div { flex-direction: column; align-items: flex-start; }
+  .panelHeader, .learningHeader, .compactProgress, .progressHeader, .activityList > div, .questionScore { flex-direction: column; align-items: flex-start; }
   .markdownDocument { padding: 22px; }
+  .questionCard { padding: 20px; }
+  .questionOption { grid-template-columns: auto auto 1fr; }
   .lessonPager { flex-direction: column; }
   .lessonPager a { max-width: 100%; }
 }

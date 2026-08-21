@@ -10,6 +10,8 @@
 6. [P2 검증](./060-p2-verification.md)
 7. [P3 사용자·진행률](./070-p3-user-progress.md)
 8. [P3 검증](./080-p3-verification.md)
+9. [P4 문제은행](./090-p4-question-bank.md)
+10. [P4 검증](./100-p4-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -23,3 +25,5 @@
 | 060 | P2 Verification | PASS |
 | 070 | P3 User / Progress | COMPLETE |
 | 080 | P3 Verification | PASS |
+| 090 | P4 Question Bank | COMPLETE |
+| 100 | P4 Verification | PASS |
