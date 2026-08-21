@@ -1,0 +1,2 @@
+-- P3 intentionally does not seed auth users.
+-- Create local learners through /login so auth.users and learner_profiles remain consistent.

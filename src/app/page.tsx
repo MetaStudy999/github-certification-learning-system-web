@@ -4,9 +4,9 @@ const phases = [
   ["P0", "Architecture", "COMPLETE"],
   ["P1", "Local Environment", "COMPLETE"],
   ["P2", "Content Engine", "COMPLETE"],
-  ["P3", "User / Progress", "NEXT"],
+  ["P3", "User / Progress", "COMPLETE"],
+  ["P4", "Question Bank", "NEXT"],
   ["P7", "AI Gateway / Tutor", "PLANNED"],
-  ["P8", "RAG", "PLANNED"],
 ] as const;
 
 export default function Home() {
@@ -20,11 +20,11 @@ export default function Home() {
 
       <section className="panel">
         <div className="panelHeader">
-          <div><p className="eyebrow">Learning Ready</p><h2>GH-900 Content Engine</h2></div>
-          <span className="badge">P2 COMPLETE</span>
+          <div><p className="eyebrow">Learning + Progress Ready</p><h2>GH-900 Vertical Slice</h2></div>
+          <span className="badge">P3 COMPLETE</span>
         </div>
-        <p>메인 GCLS 저장소의 GH-900 15개 모듈을 Local-first Content Provider로 직접 읽어 학습 화면에 렌더링합니다.</p>
-        <div className="links"><Link href="/courses/001-foundations">GH-900 학습 열기</Link><a href="/api/content/health">Content Health</a></div>
+        <p>메인 콘텐츠 저장소의 GH-900 15개 모듈을 읽고, Supabase Auth와 RLS를 이용해 개인별 학습 진행률과 세션을 저장합니다.</p>
+        <div className="links"><Link href="/courses/001-foundations">GH-900 학습</Link><Link href="/progress">내 진행률</Link><Link href="/login">학습자 계정</Link></div>
       </section>
 
       <section className="grid" aria-label="Development phases">
@@ -35,8 +35,8 @@ export default function Home() {
 
       <section className="panel">
         <p className="eyebrow">Next Phase</p>
-        <h2>P3 — User / Progress</h2>
-        <p>다음 단계에서는 사용자, 학습 세션, 모듈 완료 상태와 진행률을 Supabase PostgreSQL에 연결합니다.</p>
+        <h2>P4 — Question Bank</h2>
+        <p>다음 단계에서는 GH-900 문제은행을 Web Question Engine으로 읽고 사용자별 Attempt, 정답, 점수와 해설을 Progress에 연결합니다.</p>
       </section>
     </main>
   );

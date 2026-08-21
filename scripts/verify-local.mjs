@@ -15,12 +15,17 @@ check(major >= 22, `Node ${process.version}`, `Node 22+ required; current ${proc
 
 for (const path of [
   "package.json",
+  "package-lock.json",
   "tsconfig.json",
   "next.config.ts",
   ".env.example",
   "src/app/page.tsx",
   "src/modules/content/content-service.ts",
   "src/app/api/content/health/route.ts",
+  "src/app/login/page.tsx",
+  "src/app/progress/page.tsx",
+  "src/lib/supabase/browser.ts",
+  "supabase/migrations/20260821123000_p3_user_progress.sql",
 ]) {
   check(existsSync(resolve(path)), `${path} exists`, `${path} missing`);
 }
