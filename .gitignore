@@ -8,6 +8,9 @@
 # production
 /build
 
+# local content checkout used by CI/development
+/.gcls-content
+
 # local environment
 .env
 .env.local
