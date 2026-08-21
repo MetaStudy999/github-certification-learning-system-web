@@ -20,6 +20,8 @@
 16. [P7 검증](./160-p7-verification.md)
 17. [P8 RAG Grounding](./170-p8-rag-grounding.md)
 18. [P8 검증](./180-p8-verification.md)
+19. [P9 Labs / GitHub API](./190-p9-github-labs.md)
+20. [P9 검증](./200-p9-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -43,3 +45,5 @@
 | 160 | P7 Verification | PASS |
 | 170 | P8 RAG Grounding | COMPLETE |
 | 180 | P8 Verification | PASS |
+| 190 | P9 Labs / GitHub API | COMPLETE |
+| 200 | P9 Verification | PASS |
