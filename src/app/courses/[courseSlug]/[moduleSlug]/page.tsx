@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MarkdownDocument } from "@/components/content/markdown-document";
-import { getAdjacentModules, getCourseModule } from "@/modules/content/content-service";
+import { ModuleProgressPanel } from "@/components/progress/module-progress-panel";
+import { getAdjacentModules, getCourse, getCourseModule } from "@/modules/content/content-service";
 import { ContentNotFoundError } from "@/modules/content/core/provider";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,10 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const { courseSlug, moduleSlug } = await params;
 
   try {
-    const [module, adjacent] = await Promise.all([
+    const [module, adjacent, courseData] = await Promise.all([
       getCourseModule(courseSlug, moduleSlug),
       getAdjacentModules(courseSlug, moduleSlug),
+      getCourse(courseSlug),
     ]);
 
     return (
@@ -32,6 +34,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
           <a className="sourceLink" href={module.sourceUrl} target="_blank" rel="noreferrer">GitHub 원문 보기</a>
         </section>
 
+        <ModuleProgressPanel courseSlug={courseSlug} moduleSlug={moduleSlug} totalModules={courseData.modules.length} />
         <MarkdownDocument markdown={module.markdown} sourcePath={module.sourcePath} />
 
         <nav className="lessonPager" aria-label="Module navigation">

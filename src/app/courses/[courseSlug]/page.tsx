@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CourseProgressPanel } from "@/components/progress/course-progress-panel";
 import { getCourse } from "@/modules/content/content-service";
 import { ContentNotFoundError } from "@/modules/content/core/provider";
 
@@ -25,6 +26,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
           <h1>{course.title}</h1>
           <p className="lead">Content Provider: <strong>{provider}</strong> · {modules.length} modules</p>
         </section>
+
+        <CourseProgressPanel courseSlug={course.slug} totalModules={modules.length} />
 
         <section className="moduleGrid" aria-label={`${course.title} modules`}>
           {modules.map((module) => (
