@@ -1,10 +1,12 @@
+import Link from "next/link";
+
 const phases = [
   ["P0", "Architecture", "COMPLETE"],
   ["P1", "Local Environment", "COMPLETE"],
-  ["P2", "Content Engine", "NEXT"],
+  ["P2", "Content Engine", "COMPLETE"],
+  ["P3", "User / Progress", "NEXT"],
   ["P7", "AI Gateway / Tutor", "PLANNED"],
   ["P8", "RAG", "PLANNED"],
-  ["P9", "GitHub Labs", "PLANNED"],
 ] as const;
 
 export default function Home() {
@@ -13,44 +15,28 @@ export default function Home() {
       <section className="hero">
         <p className="eyebrow">GitHub Certification Learning System</p>
         <h1>GCLS Web</h1>
-        <p className="lead">
-          학습 · 훈련 · 평가 · 실습 · AI Tutor · Evidence · Portfolio를 하나의 흐름으로 연결합니다.
-        </p>
+        <p className="lead">학습 · 훈련 · 평가 · 실습 · AI Tutor · Evidence · Portfolio를 하나의 흐름으로 연결합니다.</p>
       </section>
 
       <section className="panel">
         <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Next Phase</p>
-            <h2>P2 — Content Engine</h2>
-          </div>
-          <span className="badge">NEXT</span>
+          <div><p className="eyebrow">Learning Ready</p><h2>GH-900 Content Engine</h2></div>
+          <span className="badge">P2 COMPLETE</span>
         </div>
-        <p>
-          P1 로컬 실행환경 검증을 완료했습니다. 다음 단계에서는 메인 GCLS 콘텐츠 저장소를 Source of Truth로 읽는 Content Adapter를 구현합니다.
-        </p>
+        <p>메인 GCLS 저장소의 GH-900 15개 모듈을 Local-first Content Provider로 직접 읽어 학습 화면에 렌더링합니다.</p>
+        <div className="links"><Link href="/courses/001-foundations">GH-900 학습 열기</Link><a href="/api/content/health">Content Health</a></div>
       </section>
 
       <section className="grid" aria-label="Development phases">
         {phases.map(([code, name, status]) => (
-          <article className="card" key={code}>
-            <span className="code">{code}</span>
-            <h3>{name}</h3>
-            <p>{status}</p>
-          </article>
+          <article className="card" key={code}><span className="code">{code}</span><h3>{name}</h3><p>{status}</p></article>
         ))}
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Local AI Strategy</p>
-        <h2>Mock → Local → API → Hybrid</h2>
-        <p>
-          기본 개발은 Mock으로 시작하고, Ollama를 로컬 Provider로 사용하며 필요할 때만 외부 API로 fallback합니다.
-        </p>
-        <div className="links">
-          <a href="/api/health">Application Health</a>
-          <a href="/api/ai/health">AI Health</a>
-        </div>
+        <p className="eyebrow">Next Phase</p>
+        <h2>P3 — User / Progress</h2>
+        <p>다음 단계에서는 사용자, 학습 세션, 모듈 완료 상태와 진행률을 Supabase PostgreSQL에 연결합니다.</p>
       </section>
     </main>
   );

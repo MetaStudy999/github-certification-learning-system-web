@@ -1,0 +1,93 @@
+name: GCLS Web Verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [p2-content-engine]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      AI_MODE: mock
+      GCLS_CONTENT_PROVIDER: local
+      GCLS_CONTENT_DIR: ${{ github.workspace }}/.gcls-content
+      GCLS_CONTENT_REPOSITORY: MetaStudy999/github-certification-learning-system
+      GCLS_CONTENT_REF: main
+    steps:
+      - name: Checkout web repository
+        uses: actions/checkout@v6
+
+      - name: Checkout content repository
+        uses: actions/checkout@v6
+        with:
+          repository: MetaStudy999/github-certification-learning-system
+          ref: main
+          path: .gcls-content
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Static verification
+        run: npm run verify
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Next.js and Content runtime smoke test
+        shell: bash
+        run: |
+          npm run start > /tmp/gcls-next.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/api/health
+          curl -fsS http://127.0.0.1:3000/api/content/health | tee /tmp/content-health.json
+          grep '"status":"ok"' /tmp/content-health.json
+          grep '"provider":"local"' /tmp/content-health.json
+          grep '"moduleCount":15' /tmp/content-health.json
+          curl -fsS http://127.0.0.1:3000/courses/001-foundations | grep 'GitHub Foundations'
+          curl -fsS http://127.0.0.1:3000/courses/001-foundations/010-overview | grep 'GH-900'
+          curl -fsS http://127.0.0.1:3000/api/ai/health
+          VERIFY_RUNNING=1 npm run verify
+
+      - name: GitHub Provider fallback smoke test
+        shell: bash
+        env:
+          GCLS_CONTENT_PROVIDER: github
+        run: |
+          PORT=3001 npm run start > /tmp/gcls-next-github.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3001/api/content/health >/tmp/github-content-health.json && break
+            sleep 1
+          done
+          cat /tmp/github-content-health.json
+          grep '"status":"ok"' /tmp/github-content-health.json
+          grep '"provider":"github"' /tmp/github-content-health.json
+          grep '"moduleCount":15' /tmp/github-content-health.json
+
+      - name: Supabase Local regression smoke test
+        shell: bash
+        run: |
+          npx --yes supabase@2.115.0 start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+          npx --yes supabase@2.115.0 status
+          npx --yes supabase@2.115.0 stop
