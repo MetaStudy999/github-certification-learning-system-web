@@ -20,13 +20,14 @@ export class OpenAIProvider implements AIProvider {
   async generate(request: AIRequest): Promise<AIResponse> {
     if (!env.openAIKey || !env.openAIModel) throw new Error("OpenAI API is not configured");
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch(`${env.openAIBaseUrl}/responses`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${env.openAIKey}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({ model: env.openAIModel, input: request.prompt }),
+      signal: AbortSignal.timeout(30_000),
       cache: "no-store",
     });
 
