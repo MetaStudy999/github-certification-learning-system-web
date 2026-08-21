@@ -14,6 +14,8 @@
 10. [P4 검증](./100-p4-verification.md)
 11. [P5 오답 엔진](./110-p5-wrong-answer-engine.md)
 12. [P5 검증](./120-p5-verification.md)
+13. [P6 Mock / Readiness](./130-p6-mock-readiness.md)
+14. [P6 검증](./140-p6-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -31,3 +33,5 @@
 | 100 | P4 Verification | PASS |
 | 110 | P5 Wrong Answer Engine | COMPLETE |
 | 120 | P5 Verification | PASS |
+| 130 | P6 Mock / Readiness | COMPLETE |
+| 140 | P6 Verification | PASS |

@@ -29,8 +29,15 @@ for (const path of [
   "src/modules/wrong-answers/wrong-answer-service.ts",
   "src/components/wrong-answers/wrong-answer-dashboard.tsx",
   "src/app/wrong-answers/page.tsx",
-  "src/app/api/wrong-answers/[wrongAnswerId]/classify/route.ts",
   "supabase/migrations/20260821234500_p5_wrong_answer_engine.sql",
+  "src/modules/mock-exams/parser.ts",
+  "src/modules/mock-exams/mock-exam-service.ts",
+  "src/modules/mock-exams/mock-attempt-service.ts",
+  "src/app/api/mocks/health/route.ts",
+  "src/components/mocks/mock-exam-player.tsx",
+  "src/modules/readiness/readiness-service.ts",
+  "src/components/readiness/readiness-dashboard.tsx",
+  "supabase/migrations/20260822001500_p6_mock_readiness.sql",
 ]) {
   check(existsSync(resolve(path)), `${path} exists`, `${path} missing`);
 }
@@ -45,26 +52,18 @@ check(
 const contentRoot = resolve(process.cwd(), process.env.GCLS_CONTENT_DIR ?? "../github-certification-learning-system");
 const localContentAvailable = existsSync(resolve(contentRoot, "001-foundations"));
 const localContentRequired = process.env.GCLS_CONTENT_PROVIDER === "local" || process.env.VERIFY_CONTENT === "1";
-check(
-  localContentAvailable,
-  `GCLS content repository found: ${contentRoot}`,
-  `GCLS content repository not found: ${contentRoot}`,
-  localContentRequired,
-);
+check(localContentAvailable, `GCLS content repository found: ${contentRoot}`, `GCLS content repository not found: ${contentRoot}`, localContentRequired);
 
 if (localContentAvailable) {
-  check(
-    existsSync(resolve(contentRoot, "001-foundations/080-question-bank/010-basics/README.md")),
-    "GH-900 Question Bank source found",
-    "GH-900 Question Bank source missing",
-    localContentRequired,
-  );
-  check(
-    existsSync(resolve(contentRoot, "001-foundations/120-wrong-answers/README.md")),
-    "GH-900 Wrong Answer source found",
-    "GH-900 Wrong Answer source missing",
-    localContentRequired,
-  );
+  for (const [path, pass] of [
+    ["001-foundations/080-question-bank/010-basics/README.md", "GH-900 Question Bank source found"],
+    ["001-foundations/120-wrong-answers/README.md", "GH-900 Wrong Answer source found"],
+    ["001-foundations/110-mock-exams/010-mock-01/questions.md", "GH-900 Mock 01 source found"],
+    ["001-foundations/110-mock-exams/020-mock-02/questions.md", "GH-900 Mock 02 source found"],
+    ["001-foundations/110-mock-exams/030-final-mock/questions.md", "GH-900 Final Mock source found"],
+  ]) {
+    check(existsSync(resolve(contentRoot, path)), pass, `${path} missing`, localContentRequired);
+  }
 }
 
 if (process.env.VERIFY_RUNNING === "1") {
@@ -97,11 +96,27 @@ if (process.env.VERIFY_RUNNING === "1") {
     }
 
     try {
-      const response = await fetch(`${baseUrl}/wrong-answers`, { signal: AbortSignal.timeout(5000) });
-      const html = await response.text();
-      check(response.ok && html.includes("GH-900 오답 재학습 Queue"), "P5 Wrong Answer page", `Wrong Answer page failed with HTTP ${response.status}`);
+      const response = await fetch(`${baseUrl}/api/mocks/health`, { signal: AbortSignal.timeout(10000) });
+      const health = await response.json();
+      check(response.ok && health.status === "ok", "P6 Mock health endpoint", `Mock health failed: ${JSON.stringify(health)}`);
+      check(health.examCount === 3, "GH-900 3 Mock exams detected", `Expected 3 Mock exams; got ${health.examCount}`);
+      check(health.questionCount === 120, "GH-900 120 Mock questions detected", `Expected 120 Mock questions; got ${health.questionCount}`);
     } catch (error) {
-      check(false, "P5 Wrong Answer page", `Wrong Answer page request failed: ${String(error)}`);
+      check(false, "P6 Mock health endpoint", `Mock health request failed: ${String(error)}`);
+    }
+
+    for (const [path, text, label] of [
+      ["/wrong-answers", "GH-900 오답 재학습 Queue", "P5 Wrong Answer page"],
+      ["/mocks/001-foundations", "Mock Exams", "P6 Mock list page"],
+      ["/readiness/001-foundations", "Exam Readiness", "P6 Readiness page"],
+    ]) {
+      try {
+        const response = await fetch(`${baseUrl}${path}`, { signal: AbortSignal.timeout(5000) });
+        const html = await response.text();
+        check(response.ok && html.includes(text), label, `${label} failed with HTTP ${response.status}`);
+      } catch (error) {
+        check(false, label, `${label} request failed: ${String(error)}`);
+      }
     }
   }
 } else {
