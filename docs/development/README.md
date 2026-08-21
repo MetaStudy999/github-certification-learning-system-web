@@ -22,6 +22,8 @@
 18. [P8 검증](./180-p8-verification.md)
 19. [P9 Labs / GitHub API](./190-p9-github-labs.md)
 20. [P9 검증](./200-p9-verification.md)
+21. [P10 Evidence / Portfolio](./210-p10-evidence-portfolio.md)
+22. [P10 검증](./220-p10-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
@@ -47,3 +49,7 @@
 | 180 | P8 Verification | PASS |
 | 190 | P9 Labs / GitHub API | COMPLETE |
 | 200 | P9 Verification | PASS |
+| 210 | P10 Evidence / Portfolio | COMPLETE |
+| 220 | P10 Verification | PASS |
+
+> GH-900 P0~P10 Vertical Slice 개발 기준선을 완료했습니다. 다음은 실제 사용자 검증·UX 안정화 후 `002-actions` 확장입니다.

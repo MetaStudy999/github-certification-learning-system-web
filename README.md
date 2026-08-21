@@ -2,8 +2,8 @@
 
 GitHub 자격증 학습 콘텐츠를 웹 기반 **학습·훈련·평가·실습·AI 튜터·증빙·포트폴리오** 경험으로 제공하는 애플리케이션입니다.
 
-> **현재 단계 (Current Phase, CP): P9 COMPLETE → P10 NEXT**  
-> P0 Architecture부터 P9 Labs / GitHub API까지 GH-900 Vertical Slice를 완료했습니다. 다음 단계는 Evidence / Portfolio 통합입니다.
+> **현재 단계 (Current Phase, CP): P10 COMPLETE — GH-900 VERTICAL SLICE COMPLETE**  
+> P0 Architecture부터 P10 Evidence / Portfolio까지 GitHub Foundations (GH-900) Vertical Slice를 완료했습니다. 다음 운영 단계는 **GH-900 실제 사용자 검증·UX 보강 → 002 GitHub Actions 확장**입니다.
 
 ## 빠른 시작 (Quick Start, QS)
 
@@ -26,9 +26,9 @@ npm run dev
 
 P8 RAG를 사용하려면 `RAG_INDEX_TOKEN`, `RAG_EMBEDDING_MODE`, `GCLS_CONTENT_VERSION`을 설정하고 Index를 생성합니다. P9 GitHub Lab은 `GITHUB_TOKEN_ENCRYPTION_KEY`를 설정한 뒤 `/labs/001-foundations`에서 학습용 Repository에 제한된 Fine-grained PAT를 연결합니다.
 
-Server credential, `OPENAI_API_KEY`, `RAG_INDEX_TOKEN`, `GITHUB_TOKEN_ENCRYPTION_KEY`, GitHub Token은 절대 `NEXT_PUBLIC_*`에 넣거나 Git에 커밋하지 않습니다.
+Server credential, `OPENAI_API_KEY`, `RAG_INDEX_TOKEN`, `GITHUB_TOKEN_ENCRYPTION_KEY`, GitHub Token은 절대 `NEXT_PUBLIC_*`에 넣거나 Git에 커밋하지 않습니다. P10 Evidence Export에도 Secret/Token을 포함하지 않습니다.
 
-## 주요 화면 / API
+## 주요 화면
 
 - `/courses/001-foundations` — GH-900 15개 학습 모듈
 - `/questions/001-foundations` — Q001–Q100 + RAG-grounded AI Tutor
@@ -36,90 +36,99 @@ Server credential, `OPENAI_API_KEY`, `RAG_INDEX_TOKEN`, `GITHUB_TOKEN_ENCRYPTION
 - `/mocks/001-foundations` — Mock 01 / 02 / Final
 - `/readiness/001-foundations` — Exam Readiness Gate
 - `/labs/001-foundations` — 실제 GitHub Lab Verification
+- `/evidence/001-foundations` — GH-900 Evidence Package
+- `/portfolio/001-foundations` — Portfolio Projection
 - `/progress` — 개인별 학습 진행률
 - `/login` — 학습자 Auth
-
-P9 API:
-
-- `/api/github/connection` — 암호화 GitHub Credential 연결/상태/삭제
-- `/api/github/labs/verify` — GitHub Lab PASS/RETRY 검증
-- `/api/github/labs/attempts` — 사용자 Lab Evidence 이력
 
 ## 저장소 역할
 
 | 저장소 | 역할 |
 |---|---|
 | [`github-certification-learning-system`](https://github.com/MetaStudy999/github-certification-learning-system) | 학습 콘텐츠 Source of Truth |
-| `github-certification-learning-system-web` | Learning / Assessment / AI-RAG / GitHub Verification / Evidence Application |
+| `github-certification-learning-system-web` | Learning / Assessment / AI-RAG / GitHub Verification / Evidence / Portfolio Application |
 
-## 현재 학습 흐름
+## GH-900 End-to-End 흐름
 
 ```text
 GCLS Content Repository
         ↓
 Learning Content
         ↓
-Question Bank + Wrong Answer
+Q001–Q100 Question Bank
         ↓
-Mock + Exam Readiness
+Wrong Answer DAY_1 → DAY_7
+        ↓
+Mock 01 → Mock 02 → Final Mock
+        ↓
+Exam Readiness Gate
         ↓
 RAG-grounded AI Tutor
         ↓
-GitHub Labs
-Repository → Branch → Commit → Issue → PR → Actions
+GitHub Labs API Verification
         ↓
-PASS / RETRY + Canonical Evidence URL
+PASS / RETRY + Canonical GitHub Evidence
         ↓
-P10 Evidence / Portfolio
+P10 Evidence Package
+        ↓
+Portfolio Projection + JSON / Markdown Export
 ```
 
-## P9 Labs / GitHub API
+## P10 Evidence / Portfolio
 
-P9는 Web이 GitHub 작업을 대신 수행하지 않고 학습자가 수행한 실제 결과를 **읽기 전용 REST API**로 검증합니다.
+P10은 기존 P3~P9 데이터를 현재 상태에서 다시 계산할 수 있는 **Evidence Snapshot**으로 묶습니다.
 
-| Lab | 검증 |
-|---:|---|
-| 020 | Repository + Default Branch |
-| 030 | 작업 Branch 존재 / 기본 Branch와 분리 |
-| 040 | Issue + Branch + Commit + Commit-on-Branch + PR Head/Base + `Closes #Issue` |
-| 080 | Actions Workflow + optional Run |
+### 자동 검증 (SYSTEM_VERIFIED)
 
-Local Credential 흐름:
+- Q001–Q100 Coverage
+- Mock 01 / Mock 02 / Final Mock 목표 점수
+- P9 Remote / Branch / GitHub Flow PASS
+- Readiness / Wrong Answer / AI-RAG 지표
+- Canonical GitHub Evidence URL
+
+### 수동 증빙 (SELF_ATTESTED)
+
+시스템이 독립적으로 확인할 수 없는 외부 사실은 별도로 기록합니다.
+
+- Environment
+- Git Basics / Local Lab
+- Repository Documentation
+- Project + Score
+- 실제 Certification Exam Result
+- Final Reflection
+
+Manual Evidence는 `What / Why / Verify / Result` 구조로 저장하며 자동 검증과 명확히 구분합니다.
+
+### CLEAR Candidate Gate
+
+9개 Evidence Gate가 모두 충족되면 내부 상태를 `CLEAR_CANDIDATE`로 표시합니다. **이는 GCLS 내부 Evidence 완성도 판정이며 실제 GitHub 자격증 합격이나 공식 자격 상태를 자동 확정하지 않습니다.**
+
+Export:
+
+- JSON — machine-readable Evidence Package
+- Markdown — human-readable Portfolio Snapshot
+
+## 기술 성장 경로
 
 ```text
-Fine-grained PAT
-   ↓ GitHub /user validation
-AES-256-GCM encryption
-   ↓
-github_connections
-   ↓
-GitHub REST verification
-   ↓
-lab_attempts / lab_verification_checks
+LEVEL 1 — LOCAL
+Next.js + Supabase Local/PostgreSQL + pgvector + Ollama + OpenAI(optional)
+        ↓
+LEVEL 2 — MVP CLOUD
+Vercel + Supabase Cloud + GitHub App + OpenAI
+        ↓
+LEVEL 3 — PRODUCTION CLOUD
+AWS 또는 GCP
 ```
-
-권장 권한: 학습용 Repository만 선택하고 Contents / Issues / Pull requests / Actions를 Read로 부여합니다. Stage 2 Cloud에서는 GitHub App User Access Token으로 교체할 수 있도록 Credential 경계를 분리했습니다.
-
-## 검증
-
-P9 기능 커밋 기준 PASS:
-
-- `GCLS Web Verify` — `32528772357`
-- `GCLS Web P6 Verify` — `32528772282`
-- `GCLS Web P7 Verify` — `32528772347`
-- `GCLS Web P8 Verify` — `32528772297`
-- `GCLS Web P9 Verify` — `32528772306`
-
-P9 전용 CI는 실제 Token/외부 계정 대신 Fake GitHub REST Server로 Token 검증, 암호화 저장, GitHub Flow, Actions, RETRY, RLS를 검증합니다.
 
 ## 문서 맵
 
 - [Architecture](./docs/architecture/README.md)
 - [Development](./docs/development/README.md)
-- [P8 RAG Grounding](./docs/development/170-p8-rag-grounding.md)
-- [P8 Verification](./docs/development/180-p8-verification.md)
 - [P9 Labs / GitHub API](./docs/development/190-p9-github-labs.md)
 - [P9 Verification](./docs/development/200-p9-verification.md)
+- [P10 Evidence / Portfolio](./docs/development/210-p10-evidence-portfolio.md)
+- [P10 Verification](./docs/development/220-p10-verification.md)
 
 ## 현재 상태
 
@@ -135,4 +144,6 @@ P9 전용 CI는 실제 Token/외부 계정 대신 Fake GitHub REST Server로 Tok
 | P7 AI Gateway / Tutor | **COMPLETE** |
 | P8 RAG | **COMPLETE** |
 | P9 Labs / GitHub API | **COMPLETE** |
-| P10 Evidence / Portfolio | **NEXT** |
+| P10 Evidence / Portfolio | **COMPLETE** |
+
+**GH-900 Vertical Slice: COMPLETE.** 다음 확장 순서는 실제 사용자 검증과 UX 안정화 후 `002-actions`입니다.
