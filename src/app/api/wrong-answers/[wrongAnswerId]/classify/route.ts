@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdminClient, verifySupabaseAccessToken } from "@/lib/supabase/server";
-import { classifyWrongAnswer, ERROR_CODES, type ErrorCode } from "@/modules/wrong-answers/wrong-answer-service";
+import { classifyWrongAnswer } from "@/modules/wrong-answers/wrong-answer-service";
+import { ERROR_CODES, type ErrorCode } from "@/modules/wrong-answers/types";
 
 interface ClassifyRouteProps {
   params: Promise<{ wrongAnswerId: string }>;
