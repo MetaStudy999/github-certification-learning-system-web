@@ -6,8 +6,6 @@
 
 ## 빠른 시작
 
-권장 로컬 배치:
-
 ```text
 workspace/
 ├─ github-certification-learning-system/
@@ -21,11 +19,7 @@ npm ci
 npm run dev
 ```
 
-열기:
-
-```text
-http://localhost:3000/courses/001-foundations
-```
+열기: `http://localhost:3000/courses/001-foundations`
 
 ## Provider 모드
 
@@ -57,16 +51,20 @@ React Markdown + GFM
 - Web에는 route/navigation metadata와 Provider 로직만 둡니다.
 - Markdown 본문은 실행 시 콘텐츠 저장소에서 읽습니다.
 - 상대 링크는 canonical GitHub 원문 링크로 변환합니다.
+- Local filesystem path는 repository root 밖으로 탈출하지 못하도록 검증합니다.
+- GitHub access token은 선택 사항이며 server-side 환경변수에만 둡니다.
 
 ## P2 Merge Gate
 
-- [ ] package lock 재생성 및 `npm ci` PASS
-- [ ] TypeScript PASS
-- [ ] Next.js build PASS
-- [ ] Content Health = `ok`
-- [ ] GH-900 module count = 15
-- [ ] Course page runtime PASS
-- [ ] `010-overview` Markdown render PASS
-- [ ] Local Provider CI PASS
-- [ ] GitHub Provider fallback smoke PASS
-- [ ] P1 Supabase smoke regression PASS
+- [x] package lock 재생성 및 `npm ci` PASS
+- [x] TypeScript PASS
+- [x] Next.js build PASS
+- [x] Content Health = `ok`
+- [x] GH-900 module count = 15
+- [x] Course page runtime PASS
+- [x] `010-overview` Markdown render PASS
+- [x] Local Provider CI PASS
+- [x] GitHub Provider fallback smoke PASS
+- [x] P1 Supabase smoke regression PASS
+
+상세 증빙: [060 P2 Verification](./060-p2-verification.md)

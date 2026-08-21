@@ -3,8 +3,8 @@ import Link from "next/link";
 const phases = [
   ["P0", "Architecture", "COMPLETE"],
   ["P1", "Local Environment", "COMPLETE"],
-  ["P2", "Content Engine", "IN PROGRESS"],
-  ["P3", "User / Progress", "PLANNED"],
+  ["P2", "Content Engine", "COMPLETE"],
+  ["P3", "User / Progress", "NEXT"],
   ["P7", "AI Gateway / Tutor", "PLANNED"],
   ["P8", "RAG", "PLANNED"],
 ] as const;
@@ -20,13 +20,10 @@ export default function Home() {
 
       <section className="panel">
         <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Current Phase</p>
-            <h2>P2 — Content Engine</h2>
-          </div>
-          <span className="badge">IN PROGRESS</span>
+          <div><p className="eyebrow">Learning Ready</p><h2>GH-900 Content Engine</h2></div>
+          <span className="badge">P2 COMPLETE</span>
         </div>
-        <p>메인 GCLS 저장소의 GH-900 콘텐츠를 Local-first Content Adapter로 읽고 웹 학습 화면에 렌더링합니다.</p>
+        <p>메인 GCLS 저장소의 GH-900 15개 모듈을 Local-first Content Provider로 직접 읽어 학습 화면에 렌더링합니다.</p>
         <div className="links"><Link href="/courses/001-foundations">GH-900 학습 열기</Link><a href="/api/content/health">Content Health</a></div>
       </section>
 
@@ -37,9 +34,9 @@ export default function Home() {
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Provider Strategy</p>
-        <h2>Local Clone → GitHub Fallback</h2>
-        <p>로컬에서는 sibling 콘텐츠 레포를 우선 사용하고, 없으면 GitHub 공개 저장소에서 동일 경로를 읽습니다.</p>
+        <p className="eyebrow">Next Phase</p>
+        <h2>P3 — User / Progress</h2>
+        <p>다음 단계에서는 사용자, 학습 세션, 모듈 완료 상태와 진행률을 Supabase PostgreSQL에 연결합니다.</p>
       </section>
     </main>
   );
