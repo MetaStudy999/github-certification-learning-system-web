@@ -5,6 +5,17 @@ GitHub 자격증 학습 콘텐츠를 웹 기반 **학습·훈련·평가·실습
 > **현재 단계 (Current Phase, CP): P10 COMPLETE — GH-900 VERTICAL SLICE COMPLETE**  
 > P0 Architecture부터 P10 Evidence / Portfolio까지 GitHub Foundations (GH-900) Vertical Slice를 완료했습니다. 다음 운영 단계는 **GH-900 실제 사용자 검증·UX 보강 → 002 GitHub Actions 확장**입니다.
 
+## 처음 설치하는 분 (Beginner Start Here)
+
+Git/GitHub, Node.js, Supabase가 처음이라면 아래 입문자 매뉴얼을 **010부터 190까지 번호 순서대로 하나씩** 진행하세요.
+
+- **[GCLS Web 입문자 설치·실행 매뉴얼](./docs/beginner/README.md)**
+- [010 처음 시작하기](./docs/beginner/010-start-here.md)
+- [030 Workspace 만들기와 두 Repository Clone](./docs/beginner/030-workspace-clone.md)
+- [190 전체 설치·실행 체크리스트](./docs/beginner/190-full-checklist.md)
+
+매뉴얼은 `Clone → Node/npm → npm ci → .env.local → Supabase → DB migration → Web 실행 → 로그인 → GH-900 → AI/RAG → GitHub Labs → Evidence/Portfolio → Verify`의 전체 흐름을 다룹니다.
+
 ## 빠른 시작 (Quick Start, QS)
 
 콘텐츠 레포와 Web 레포를 sibling으로 배치합니다.
@@ -123,6 +134,7 @@ AWS 또는 GCP
 
 ## 문서 맵
 
+- **[Beginner Install & Run Manual](./docs/beginner/README.md)**
 - [Architecture](./docs/architecture/README.md)
 - [Development](./docs/development/README.md)
 - [P9 Labs / GitHub API](./docs/development/190-p9-github-labs.md)

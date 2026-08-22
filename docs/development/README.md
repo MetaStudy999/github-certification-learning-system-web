@@ -1,34 +1,38 @@
 # Development — 개발
 
+> Git/GitHub, Node.js, Supabase가 처음이라면 개발 문서보다 먼저 **[입문자 설치·실행 매뉴얼](../beginner/README.md)** 을 010부터 순서대로 진행하세요.
+
 ## 빠른 시작 (Quick Start, QS)
 
-1. [로컬 개발 기준](./010-local-development.md)
-2. [P0~P10 개발 로드맵](./020-development-roadmap.md)
-3. [P1 로컬 개발환경](./030-p1-local-environment.md)
-4. [P1 검증](./040-p1-verification.md)
-5. [P2 콘텐츠 엔진](./050-p2-content-engine.md)
-6. [P2 검증](./060-p2-verification.md)
-7. [P3 사용자·진행률](./070-p3-user-progress.md)
-8. [P3 검증](./080-p3-verification.md)
-9. [P4 문제은행](./090-p4-question-bank.md)
-10. [P4 검증](./100-p4-verification.md)
-11. [P5 오답 엔진](./110-p5-wrong-answer-engine.md)
-12. [P5 검증](./120-p5-verification.md)
-13. [P6 Mock / Readiness](./130-p6-mock-readiness.md)
-14. [P6 검증](./140-p6-verification.md)
-15. [P7 AI Gateway / Tutor](./150-p7-ai-gateway-tutor.md)
-16. [P7 검증](./160-p7-verification.md)
-17. [P8 RAG Grounding](./170-p8-rag-grounding.md)
-18. [P8 검증](./180-p8-verification.md)
-19. [P9 Labs / GitHub API](./190-p9-github-labs.md)
-20. [P9 검증](./200-p9-verification.md)
-21. [P10 Evidence / Portfolio](./210-p10-evidence-portfolio.md)
-22. [P10 검증](./220-p10-verification.md)
+1. [입문자 설치·실행 매뉴얼](../beginner/README.md)
+2. [로컬 개발 기준](./010-local-development.md)
+3. [P0~P10 개발 로드맵](./020-development-roadmap.md)
+4. [P1 로컬 개발환경](./030-p1-local-environment.md)
+5. [P1 검증](./040-p1-verification.md)
+6. [P2 콘텐츠 엔진](./050-p2-content-engine.md)
+7. [P2 검증](./060-p2-verification.md)
+8. [P3 사용자·진행률](./070-p3-user-progress.md)
+9. [P3 검증](./080-p3-verification.md)
+10. [P4 문제은행](./090-p4-question-bank.md)
+11. [P4 검증](./100-p4-verification.md)
+12. [P5 오답 엔진](./110-p5-wrong-answer-engine.md)
+13. [P5 검증](./120-p5-verification.md)
+14. [P6 Mock / Readiness](./130-p6-mock-readiness.md)
+15. [P6 검증](./140-p6-verification.md)
+16. [P7 AI Gateway / Tutor](./150-p7-ai-gateway-tutor.md)
+17. [P7 검증](./160-p7-verification.md)
+18. [P8 RAG Grounding](./170-p8-rag-grounding.md)
+19. [P8 검증](./180-p8-verification.md)
+20. [P9 Labs / GitHub API](./190-p9-github-labs.md)
+21. [P9 검증](./200-p9-verification.md)
+22. [P10 Evidence / Portfolio](./210-p10-evidence-portfolio.md)
+23. [P10 검증](./220-p10-verification.md)
 
 ## 목차 (Table of Contents, TOC)
 
 | 코드 | 문서 | 상태 |
 |---:|---|---|
+| Beginner 010~190 | Clone → Install → Run → Verify | ACTIVE |
 | 010 | Local Development Standard | ACTIVE |
 | 020 | Development Roadmap | ACTIVE |
 | 030 | P1 Local Development Environment | COMPLETE |
