@@ -74,17 +74,20 @@ function parseModelJson(text: string): Omit<CoachResult, "provider" | "model" | 
     const parsed = JSON.parse(cleaned) as Partial<CoachResult>;
     if (!parsed.summary || !parsed.verify || !Array.isArray(parsed.steps) || parsed.steps.length === 0) return null;
 
-    const steps = parsed.steps
+    const steps: CoachStep[] = parsed.steps
       .filter((step): step is CoachStep => Boolean(step?.command && step?.why))
       .slice(0, 5)
-      .map((step) => ({
-        command: String(step.command),
-        why: String(step.why),
-        risk: step.risk === "high" || step.risk === "medium" ? step.risk : "low",
-      }));
+      .map((step) => {
+        const stepRisk: CoachStep["risk"] = step.risk === "high" || step.risk === "medium" ? step.risk : "low";
+        return {
+          command: String(step.command),
+          why: String(step.why),
+          risk: stepRisk,
+        };
+      });
 
     if (steps.length === 0) return null;
-    const risk = parsed.risk === "high" || parsed.risk === "medium" ? parsed.risk : "low";
+    const risk: CoachResult["risk"] = parsed.risk === "high" || parsed.risk === "medium" ? parsed.risk : "low";
 
     return {
       summary: String(parsed.summary),
