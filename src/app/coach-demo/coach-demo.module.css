@@ -1,0 +1,450 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 78% 12%, rgba(70, 84, 255, .16), transparent 28%),
+    radial-gradient(circle at 18% 75%, rgba(25, 205, 170, .08), transparent 30%),
+    #07101e;
+  color: #eef4ff;
+  padding: 18px;
+}
+
+.shell {
+  max-width: 1680px;
+  margin: 0 auto;
+  border: 1px solid #1f3551;
+  border-radius: 18px;
+  background: rgba(7, 16, 30, .92);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .35);
+  overflow: hidden;
+}
+
+.topbar {
+  height: 66px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid #1d3049;
+  background: rgba(8, 19, 35, .96);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.brandMark {
+  color: #7d79ff;
+  font-size: 26px;
+}
+
+.tagline {
+  color: #7f91aa;
+  font-size: 13px;
+}
+
+.statusPill {
+  margin-left: auto;
+  padding: 8px 12px;
+  border: 1px solid #274462;
+  border-radius: 999px;
+  color: #78d8bf;
+  background: #0c1c2d;
+  font-size: 12px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(310px, .86fr) minmax(520px, 1.5fr) minmax(360px, 1fr);
+  min-height: 790px;
+}
+
+.panel {
+  min-width: 0;
+  border-right: 1px solid #1d3049;
+  background: linear-gradient(180deg, rgba(10, 22, 39, .92), rgba(6, 14, 27, .94));
+}
+
+.panel:last-child { border-right: 0; }
+
+.panelHeader {
+  min-height: 72px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #1d3049;
+}
+
+.panelHeader h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.panelHeader p {
+  margin: 5px 0 0;
+  color: #7f91aa;
+  font-size: 12px;
+}
+
+.smallBadge {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #102741;
+  color: #7ddac3;
+  font-size: 11px;
+}
+
+.graphTabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #152941;
+}
+
+.graphTab {
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #7f91aa;
+  font-size: 12px;
+}
+
+.graphTabActive {
+  color: #cfd8ff;
+  background: #111f48;
+  border-color: #36487d;
+}
+
+.graphList {
+  padding: 12px 12px 20px;
+}
+
+.commitRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px 1fr 54px;
+  gap: 8px;
+  align-items: center;
+  min-height: 54px;
+  padding: 6px 8px;
+  border-radius: 10px;
+}
+
+.commitRowActive {
+  background: linear-gradient(90deg, rgba(45, 94, 255, .25), rgba(27, 49, 85, .28));
+  outline: 1px solid rgba(88, 136, 255, .35);
+}
+
+.lanes {
+  position: relative;
+  height: 42px;
+}
+
+.laneLine {
+  position: absolute;
+  top: -18px;
+  bottom: -18px;
+  width: 2px;
+  border-radius: 999px;
+  opacity: .9;
+}
+
+.lane0 { left: 12px; background: #4f8cff; }
+.lane1 { left: 30px; background: #9b6cff; }
+.lane2 { left: 48px; background: #2fd3aa; }
+
+.node {
+  position: absolute;
+  top: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 3px solid #0a1628;
+  box-shadow: 0 0 0 2px currentColor;
+}
+
+.node0 { left: 7px; color: #5e9eff; background: #5e9eff; }
+.node1 { left: 25px; color: #a878ff; background: #a878ff; }
+.node2 { left: 43px; color: #3be1b5; background: #3be1b5; }
+.nodeGlow { box-shadow: 0 0 0 3px currentColor, 0 0 18px currentColor; }
+
+.commitText strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: #dce7f7;
+}
+
+.commitText span, .commitTime {
+  display: block;
+  margin-top: 4px;
+  color: #6f829d;
+  font-size: 11px;
+}
+
+.branchPill {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #c7d7ff !important;
+  background: #1b3565;
+  font-size: 10px !important;
+}
+
+.centerBody {
+  padding: 18px;
+}
+
+.progressLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8ea1b9;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.progressTrack {
+  width: 160px;
+  height: 6px;
+  background: #12233a;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3d7cff, #4ce0bc);
+}
+
+.commandCard {
+  border: 1px solid #245988;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(10, 27, 47, .9), rgba(8, 20, 36, .96));
+  padding: 20px;
+  box-shadow: inset 0 0 30px rgba(33, 104, 177, .06);
+}
+
+.commandLabel {
+  color: #8ea1b9;
+  font-size: 12px;
+}
+
+.commandText {
+  margin: 10px 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(32px, 4.3vw, 58px);
+  line-height: 1.05;
+  color: #7ef0bd;
+  text-shadow: 0 0 18px rgba(89, 238, 187, .15);
+  word-break: break-word;
+}
+
+.commandWhy {
+  color: #a9bbd0;
+  line-height: 1.65;
+}
+
+.actionRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.runButton, .secondaryButton, .suggestionButton, .sendButton {
+  border: 0;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.runButton {
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #356dff, #5b4dff);
+  color: white;
+}
+
+.secondaryButton, .suggestionButton {
+  padding: 9px 12px;
+  border: 1px solid #274462;
+  background: #0c1a2c;
+  color: #9eb2ca;
+}
+
+.explainCard {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #203d59;
+  border-radius: 14px;
+  background: #0a192a;
+}
+
+.explainCard h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #8bbcff;
+}
+
+.explainCard p {
+  margin: 0;
+  color: #a3b5c9;
+  line-height: 1.7;
+}
+
+.terminal {
+  margin-top: 14px;
+  min-height: 250px;
+  padding: 16px;
+  border: 1px solid #1b3855;
+  border-radius: 14px;
+  background: #030912;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #c7d4e4;
+  overflow: auto;
+}
+
+.prompt { color: #64e7b7; }
+.terminalDim { color: #6f829a; }
+.terminalWarn { color: #ff8b87; }
+
+.chatBody {
+  display: flex;
+  flex-direction: column;
+  min-height: 718px;
+}
+
+.chatScroll {
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+}
+
+.userBubble, .aiBubble {
+  max-width: 92%;
+  padding: 13px 14px;
+  border-radius: 14px;
+  line-height: 1.55;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.userBubble {
+  margin-left: auto;
+  background: linear-gradient(135deg, #1d67f1, #364fca);
+  color: white;
+}
+
+.aiBubble {
+  border: 1px solid #213c58;
+  background: #0d1c2e;
+  color: #c6d4e5;
+}
+
+.stepList {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.stepButton {
+  width: 100%;
+  text-align: left;
+  padding: 11px;
+  border: 1px solid #213c58;
+  border-radius: 11px;
+  background: #091829;
+  color: #d6e3f3;
+  cursor: pointer;
+}
+
+.stepButtonActive {
+  border-color: #397eff;
+  background: #102241;
+}
+
+.stepButton code {
+  display: block;
+  margin-bottom: 5px;
+  color: #76e6bc;
+  font-size: 12px;
+}
+
+.stepButton span {
+  color: #8295ad;
+  font-size: 11px;
+}
+
+.safety {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #684f29;
+  border-radius: 10px;
+  color: #f4c66f;
+  background: #21180b;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.chatComposer {
+  padding: 12px;
+  border-top: 1px solid #1d3049;
+  background: #071321;
+}
+
+.inputRow {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #2a4562;
+  border-radius: 11px;
+  outline: none;
+  background: #091827;
+  color: #e4edf7;
+}
+
+.input:focus { border-color: #4f83ff; }
+
+.sendButton {
+  padding: 0 16px;
+  background: #3475ff;
+  color: white;
+}
+
+.quickRow {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 9px;
+  overflow-x: auto;
+}
+
+.loading { opacity: .65; }
+
+@media (max-width: 1180px) {
+  .workspace { grid-template-columns: 280px 1fr; }
+  .chatPanel { grid-column: 1 / -1; border-top: 1px solid #1d3049; }
+  .chatBody { min-height: 520px; }
+}
+
+@media (max-width: 760px) {
+  .page { padding: 0; }
+  .shell { border-radius: 0; }
+  .tagline, .statusPill { display: none; }
+  .workspace { grid-template-columns: 1fr; }
+  .panel { border-right: 0; border-bottom: 1px solid #1d3049; }
+  .graphPanel { min-height: 560px; }
+  .commandText { font-size: 34px; }
+}
